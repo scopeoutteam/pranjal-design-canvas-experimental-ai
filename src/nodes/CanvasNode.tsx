@@ -42,6 +42,7 @@ export default function CanvasNode({
   onSelect,
   onMoveSelection,
   onResize,
+  onConnectData,
   onAction,
   onSendMessage,
   onDelete,
@@ -65,6 +66,7 @@ export default function CanvasNode({
   onSelect: (mode: SelectionMode) => void
   onMoveSelection: (dx: number, dy: number) => void
   onResize?: (next: { x: number; y: number; width: number; height: number }) => void
+  onConnectData?: () => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
   onDelete?: () => void
@@ -271,6 +273,8 @@ export default function CanvasNode({
           onCopy={onCopy}
           onCut={onCut}
           onRename={onRename}
+          onConnectData={onConnectData}
+          isConnected={!!conversation?.dataConnection}
           onPlay={() => {
             const surface =
               (conversation?.surface as A2uiMessage[] | null | undefined) ??
@@ -500,6 +504,8 @@ function NodeHeader({
   onCut,
   onRename,
   onPlay,
+  onConnectData,
+  isConnected,
 }: {
   title: string
   kind: NodeKind
@@ -510,6 +516,8 @@ function NodeHeader({
   onCut?: () => void
   onRename?: (title: string) => void
   onPlay?: () => void
+  onConnectData?: () => void
+  isConnected?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -699,6 +707,17 @@ function NodeHeader({
             <MenuItem onClick={run(onDuplicate)} icon={<DuplicateIcon />} label="Duplicate" shortcut="" />
             <MenuItem onClick={run(onCopy)} icon={<CopyIcon />} label="Copy" shortcut="" />
             <MenuItem onClick={run(onCut)} icon={<CutIcon />} label="Cut" shortcut="" />
+            {onConnectData ? (
+              <>
+                <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                <MenuItem
+                  onClick={run(onConnectData)}
+                  icon={<ConnectDataIcon />}
+                  label={isConnected ? 'Edit data connection' : 'Connect to data…'}
+                  shortcut=""
+                />
+              </>
+            ) : null}
             <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
             <MenuItem
               onClick={run(onDelete)}
@@ -785,6 +804,16 @@ function TrashIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <path d="M3 4 L11 4 M5 4 L5 2.5 A0.7 0.7 0 0 1 5.7 1.8 L8.3 1.8 A0.7 0.7 0 0 1 9 2.5 L9 4 M4 4 L4.6 12 A0.8 0.8 0 0 0 5.4 12.7 L8.6 12.7 A0.8 0.8 0 0 0 9.4 12 L10 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" />
+    </svg>
+  )
+}
+function ConnectDataIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <ellipse cx="4" cy="3.5" rx="2.5" ry="1.2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M1.5 3.5 V7 C1.5 7.66 2.62 8.2 4 8.2 C5.38 8.2 6.5 7.66 6.5 7 V3.5" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <path d="M6.5 7 L9 7 M9 7 L7.6 5.6 M9 7 L7.6 8.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="11" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.2" fill="none" />
     </svg>
   )
 }

@@ -4,9 +4,11 @@ import LeftRail from './LeftRail'
 import BrandHeader from './BrandHeader'
 import QuickPromptWindow from './QuickPromptWindow'
 import TopToolbar, { type CanvasMode } from './TopToolbar'
-import { NODE_DEFAULTS, type CanvasNodeData, type NodeKind } from './types'
+import { NODE_DEFAULTS, type CanvasNodeData, type DataConnection, type NodeKind } from './types'
 import type { A2uiMessage } from './a2ui/types'
+import { surfaceHasDataComponents } from './a2ui/types'
 import { extractTheme } from './a2ui/Renderer'
+import ConnectDataModal from './ConnectDataModal'
 
 export type SelectionMode = 'replace' | 'add' | 'toggle'
 
@@ -24,6 +26,7 @@ export interface Conversation {
   error: string | null
   routing: boolean
   routeReason: string | null
+  dataConnection?: DataConnection | null
 }
 
 const INITIAL_CONVERSATION: Conversation = {
@@ -35,6 +38,7 @@ const INITIAL_CONVERSATION: Conversation = {
   error: null,
   routing: false,
   routeReason: null,
+  dataConnection: null,
 }
 
 export default function App() {
@@ -46,6 +50,7 @@ export default function App() {
   const [routing, setRouting] = useState(false)
   const [routeError, setRouteError] = useState<string | null>(null)
   const [canvasMode, setCanvasMode] = useState<CanvasMode>('design')
+  const [connectModalNodeId, setConnectModalNodeId] = useState<string | null>(null)
   const clipboard = useRef<Array<Omit<CanvasNodeData, 'id'>>>([])
 
   // Active conversation derived from map
@@ -168,6 +173,22 @@ export default function App() {
             : n,
         ),
       )
+    },
+    [],
+  )
+
+  const openConnectModal = useCallback((nodeId: string) => {
+    setConnectModalNodeId(nodeId)
+  }, [])
+
+  const setDataConnection = useCallback(
+    (nodeId: string, conn: DataConnection | null) => {
+      setConversations((prev) => {
+        const next = new Map(prev)
+        const existing = next.get(nodeId) ?? INITIAL_CONVERSATION
+        next.set(nodeId, { ...existing, dataConnection: conn })
+        return next
+      })
     },
     [],
   )
@@ -541,6 +562,7 @@ export default function App() {
         onAddComponentNode={addComponentNode}
         onMoveSelection={moveSelection}
         onResizeNode={resizeNode}
+        onConnectData={openConnectModal}
         onSelectNode={selectNode}
         onSelectComponent={selectComponent}
         onEditText={editComponentText}
@@ -569,6 +591,43 @@ export default function App() {
           setActiveNodeId(null)
         }}
         routeError={routeError}
+        dataRecommendation={
+          activeNodeId && surfaceHasDataComponents(activeConversation.surface)
+            ? {
+                connection: activeConversation.dataConnection ?? null,
+                onConnect: () => activeNodeId && openConnectModal(activeNodeId),
+              }
+            : null
+        }
+      />
+      <ConnectDataModal
+        open={!!connectModalNodeId}
+        initial={
+          connectModalNodeId
+            ? conversations.get(connectModalNodeId)?.dataConnection ?? null
+            : null
+        }
+        frameTitle={
+          connectModalNodeId
+            ? nodes.find((n) => n.id === connectModalNodeId)?.title ??
+              NODE_DEFAULTS[
+                nodes.find((n) => n.id === connectModalNodeId)?.kind ?? 'mobile'
+              ].title
+            : undefined
+        }
+        onSave={(conn) => {
+          if (connectModalNodeId) {
+            setDataConnection(connectModalNodeId, conn)
+            setConnectModalNodeId(null)
+          }
+        }}
+        onDisconnect={() => {
+          if (connectModalNodeId) {
+            setDataConnection(connectModalNodeId, null)
+            setConnectModalNodeId(null)
+          }
+        }}
+        onClose={() => setConnectModalNodeId(null)}
       />
     </>
   )

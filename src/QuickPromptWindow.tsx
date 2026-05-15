@@ -28,6 +28,7 @@ export default function QuickPromptWindow({
   targetLabel,
   onClearTarget,
   routeError,
+  dataRecommendation,
 }: {
   onSubmit?: (text: string) => void | Promise<void>
   loading?: boolean
@@ -35,6 +36,10 @@ export default function QuickPromptWindow({
   targetLabel?: string | null
   onClearTarget?: () => void
   routeError?: string | null
+  dataRecommendation?: {
+    connection: import('./types').DataConnection | null
+    onConnect: () => void
+  } | null
 }) {
   useShimmerStyles()
   const [open, setOpen] = useState(false)
@@ -108,6 +113,7 @@ export default function QuickPromptWindow({
           targetLabel={targetLabel ?? null}
           onClearTarget={onClearTarget}
           routeError={routeError ?? null}
+          dataRecommendation={dataRecommendation ?? null}
           textareaRef={textareaRef}
         />
       ) : (
@@ -177,6 +183,7 @@ function ExpandedPanel({
   targetLabel,
   onClearTarget,
   routeError,
+  dataRecommendation,
   textareaRef,
 }: {
   value: string
@@ -188,6 +195,10 @@ function ExpandedPanel({
   targetLabel: string | null
   onClearTarget?: () => void
   routeError: string | null
+  dataRecommendation: {
+    connection: import('./types').DataConnection | null
+    onConnect: () => void
+  } | null
   textareaRef: React.RefObject<HTMLTextAreaElement>
 }) {
   return (
@@ -294,6 +305,13 @@ function ExpandedPanel({
           >
             {routeError}
           </div>
+        ) : null}
+
+        {dataRecommendation ? (
+          <DataRecommendationBanner
+            connection={dataRecommendation.connection}
+            onConnect={dataRecommendation.onConnect}
+          />
         ) : null}
 
         <textarea
@@ -543,5 +561,98 @@ function ChevronDown() {
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
       <path d="M3 5 L6 8 L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </svg>
+  )
+}
+
+function DataRecommendationBanner({
+  connection,
+  onConnect,
+}: {
+  connection: import('./types').DataConnection | null
+  onConnect: () => void
+}) {
+  const isConnected = !!connection
+  const summary = !connection
+    ? null
+    : connection.kind === 'api'
+    ? connection.endpoint
+    : connection.serverName || connection.serverUrl
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '8px 10px 8px 12px',
+        borderRadius: 10,
+        background: isConnected
+          ? 'linear-gradient(90deg, rgba(74,70,190,0.06) 0%, rgba(92,188,193,0.06) 100%)'
+          : 'linear-gradient(90deg, rgba(74,70,190,0.08) 0%, rgba(92,188,193,0.08) 100%)',
+        border: '1px solid',
+        borderColor: isConnected ? 'rgba(92,188,193,0.45)' : 'rgba(74,70,190,0.25)',
+        color: '#171717',
+      }}
+    >
+      <div
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          background: 'linear-gradient(135deg, #4A46BE 0%, #5CBCC1 100%)',
+          color: '#ffffff',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+          <ellipse cx="4" cy="3.5" rx="2.5" ry="1.2" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M1.5 3.5 V7 C1.5 7.66 2.62 8.2 4 8.2 C5.38 8.2 6.5 7.66 6.5 7 V3.5" stroke="currentColor" strokeWidth="1.3" fill="none" />
+          <path d="M6.5 7 L9 7 M9 7 L7.6 5.6 M9 7 L7.6 8.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <circle cx="11" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.3" fill="none" />
+        </svg>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: '#171717' }}>
+          {isConnected ? 'Connected to live data' : 'This frame uses mock data'}
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: '#525252',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {isConnected
+            ? `${connection?.kind === 'api' ? 'API' : 'MCP'} · ${summary}`
+            : 'Connect an API endpoint or MCP server to render real values.'}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onConnect}
+        style={{
+          padding: '6px 12px',
+          borderRadius: 999,
+          border: 'none',
+          background: isConnected
+            ? '#ffffff'
+            : 'linear-gradient(90deg, #4A46BE 0%, #5CBCC1 100%)',
+          color: isConnected ? '#4A46BE' : '#ffffff',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          flexShrink: 0,
+          boxShadow: isConnected ? '0 0 0 1px rgba(74,70,190,0.35) inset' : 'none',
+        }}
+      >
+        {isConnected ? 'Edit' : 'Connect data'}
+      </button>
+    </div>
   )
 }

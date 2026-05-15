@@ -33,3 +33,28 @@ export const NODE_DEFAULTS: Record<NodeKind, { width: number; height: number; ti
 
 export const DRAG_MIME = 'application/x-a2ui-kind'
 export const COMPONENT_DRAG_MIME = 'application/x-a2ui-component'
+
+export type DataConnection =
+  | {
+      kind: 'api'
+      endpoint: string
+      method?: 'GET' | 'POST'
+      authHeader?: string
+      notes?: string
+    }
+  | {
+      kind: 'mcp'
+      serverUrl: string
+      serverName?: string
+      tool?: string
+      notes?: string
+    }
+
+export const DATA_COMPONENT_TYPES = new Set([
+  'Table',
+  'BarChart',
+  'LineChart',
+  'KeyValueList',
+  'StatCard',
+  'MetricGrid',
+])

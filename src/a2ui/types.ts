@@ -30,3 +30,17 @@ export interface UpdateComponentsMessage {
 export type A2uiMessage = CreateSurfaceMessage | UpdateComponentsMessage
 
 export type OnAction = (action: A2uiAction['event']) => void
+
+import { DATA_COMPONENT_TYPES } from '../types'
+
+export function surfaceHasDataComponents(messages: A2uiMessage[] | null | undefined): boolean {
+  if (!messages) return false
+  for (const m of messages) {
+    if ('updateComponents' in m && m.updateComponents?.components) {
+      for (const c of m.updateComponents.components) {
+        if (c && DATA_COMPONENT_TYPES.has(c.component)) return true
+      }
+    }
+  }
+  return false
+}
