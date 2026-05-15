@@ -11,6 +11,7 @@ export default function MobileBody({
   onEditText,
   onAction,
   height,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -21,6 +22,7 @@ export default function MobileBody({
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   height?: number
+  canvasMode?: 'design' | 'prototype'
 } = {}) {
   const hasLive = !!surface || !!loading || !!error
   return (
@@ -37,7 +39,7 @@ export default function MobileBody({
       }}
     >
       {hasLive ? (
-        <LiveBody surface={surface} loading={loading} error={error} theme={theme} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} onAction={onAction} />
+        <LiveBody surface={surface} loading={loading} error={error} theme={theme} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} onAction={onAction} canvasMode={canvasMode} />
       ) : (
         <div style={{ flex: 1 }} />
       )}
@@ -54,6 +56,7 @@ function LiveBody({
   onSelectComponent,
   onEditText,
   onAction,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -63,6 +66,7 @@ function LiveBody({
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
+  canvasMode?: 'design' | 'prototype'
 }) {
   return (
     <div
@@ -96,7 +100,7 @@ function LiveBody({
         </div>
       ) : null}
       {surface ? (
-        <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} />
+        <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} canvasMode={canvasMode} />
       ) : null}
       {/* Loading state shown via shimmer overlay in CanvasNode */}
     </div>

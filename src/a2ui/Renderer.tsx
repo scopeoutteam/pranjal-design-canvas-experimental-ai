@@ -53,12 +53,14 @@ export default function A2uiRenderer({
   selectedComponentId,
   onSelectComponent,
   onEditText,
+  canvasMode,
 }: {
   messages: A2uiMessage[]
   onAction: OnAction
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string, field?: string) => void
+  canvasMode?: 'design' | 'prototype'
 }) {
   const components = useMemo<ComponentMap>(() => {
     const map = new Map<string, A2uiComponent>()
@@ -86,7 +88,15 @@ export default function A2uiRenderer({
   }
 
   const handleSelectClick = (e: React.MouseEvent) => {
-    if (!onSelectComponent || !(e.altKey || e.metaKey)) return
+    if (!onSelectComponent) return
+    // In design mode, plain click selects (the surface is non-interactive there).
+    // In prototype mode, only Alt/Cmd+click selects so regular clicks still drive
+    // the rendered component's behavior (button onPress, etc).
+    const isDesign = canvasMode === 'design'
+    if (!isDesign && !(e.altKey || e.metaKey)) return
+    // Ignore clicks that originate from the inline EditableText input so the
+    // user can keep typing without losing focus.
+    if ((e.target as HTMLElement).closest('input, textarea')) return
     const el = (e.target as HTMLElement).closest('[data-a2ui-id]')
     const id = el?.getAttribute('data-a2ui-id') ?? null
     if (id) {
@@ -96,10 +106,17 @@ export default function A2uiRenderer({
     }
   }
 
+  const isDesign = canvasMode === 'design'
+
   return (
     <FluentProvider
       theme={theme}
-      style={{ background: 'transparent' }}
+      style={{
+        background: 'transparent',
+        // In design mode the whole surface is selection-mode; show a pointer
+        // cursor so users discover that any element is selectable.
+        cursor: isDesign && onSelectComponent ? 'pointer' : undefined,
+      }}
       onClickCapture={handleSelectClick}
     >
       <Node

@@ -43,6 +43,7 @@ export default function CanvasNode({
   onMoveSelection,
   onResize,
   onConnectData,
+  canvasMode,
   onAction,
   onSendMessage,
   onDelete,
@@ -67,6 +68,7 @@ export default function CanvasNode({
   onMoveSelection: (dx: number, dy: number) => void
   onResize?: (next: { x: number; y: number; width: number; height: number }) => void
   onConnectData?: () => void
+  canvasMode?: 'design' | 'prototype'
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
   onDelete?: () => void
@@ -311,6 +313,7 @@ export default function CanvasNode({
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
             onEditText={onEditText}
+            canvasMode={canvasMode}
             onAction={onAction}
             onSendMessage={onSendMessage}
             height={Math.max(0, height - 48)}
@@ -325,6 +328,7 @@ export default function CanvasNode({
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
             onEditText={onEditText}
+            canvasMode={canvasMode}
             onAction={onAction}
             height={Math.max(0, height - 48)}
           />
@@ -338,6 +342,7 @@ export default function CanvasNode({
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
             onEditText={onEditText}
+            canvasMode={canvasMode}
             onAction={onAction}
           />
         )}
@@ -352,6 +357,7 @@ export default function CanvasNode({
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
             onEditText={onEditText}
+            canvasMode={canvasMode}
             onAction={onAction}
           />
         )}

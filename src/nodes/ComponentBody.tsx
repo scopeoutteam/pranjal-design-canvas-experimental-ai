@@ -9,6 +9,7 @@ export default function ComponentBody({
   onSelectComponent,
   onEditText,
   onAction,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -18,6 +19,7 @@ export default function ComponentBody({
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
+  canvasMode?: 'design' | 'prototype'
 } = {}) {
   return (
     <div style={{ display: 'inline-block', minWidth: 40, minHeight: 24 }}>
@@ -42,6 +44,7 @@ export default function ComponentBody({
           selectedComponentId={selectedComponentId}
           onSelectComponent={onSelectComponent}
           onEditText={onEditText}
+          canvasMode={canvasMode}
         />
       ) : null}
       {/* Loading state shown via shimmer overlay in CanvasNode */}

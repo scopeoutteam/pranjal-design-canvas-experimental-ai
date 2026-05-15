@@ -15,6 +15,7 @@ export default function ChatBody({
   onAction,
   onSendMessage,
   height,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -27,6 +28,7 @@ export default function ChatBody({
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
   height?: number
+  canvasMode?: 'design' | 'prototype'
 }) {
   const hasLive = !!surface || !!loading || !!error || (history && history.length > 0)
 
@@ -58,6 +60,7 @@ export default function ChatBody({
           onEditText={onEditText}
           onAction={onAction}
           onSendMessage={onSendMessage}
+          canvasMode={canvasMode}
         />
       ) : (
         <StaticBody onSendMessage={onSendMessage} />
@@ -128,6 +131,7 @@ function LiveBody({
   onEditText,
   onAction,
   onSendMessage,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -139,6 +143,7 @@ function LiveBody({
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
+  canvasMode?: 'design' | 'prototype'
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -187,7 +192,7 @@ function LiveBody({
         ) : null}
 
         {surface ? (
-          <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} />
+          <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} canvasMode={canvasMode} />
         ) : null}
 
         {/* Loading state shown via shimmer overlay in CanvasNode */}

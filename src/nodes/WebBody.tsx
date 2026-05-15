@@ -10,6 +10,7 @@ export default function WebBody({
   onSelectComponent,
   onEditText,
   onAction,
+  canvasMode,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -19,6 +20,7 @@ export default function WebBody({
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
+  canvasMode?: 'design' | 'prototype'
 } = {}) {
   const hasLive = !!surface || !!loading || !!error
   return (
@@ -67,7 +69,7 @@ export default function WebBody({
             </div>
           ) : null}
           {surface ? (
-            <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} />
+            <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} canvasMode={canvasMode} />
           ) : null}
           {/* Loading state shown via shimmer overlay in CanvasNode */}
         </div>

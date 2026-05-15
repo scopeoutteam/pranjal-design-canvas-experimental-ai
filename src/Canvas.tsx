@@ -131,7 +131,7 @@ export default function Canvas({
   onArrange,
   onAction,
   onSendMessage,
-  canvasMode: _canvasMode,
+  canvasMode,
 }: {
   nodes: CanvasNodeData[]
   activeNodeId: string | null
@@ -424,12 +424,18 @@ export default function Canvas({
             isActive={n.id === activeNodeId}
             conversation={conversations.get(n.id)}
             selectedComponentId={n.id === activeNodeId ? selectedComponentId : null}
-            onSelectComponent={(cid) => onSelectComponent(cid)}
+            onSelectComponent={(cid) => {
+              // Selecting a component inside a frame also makes the frame active
+              // so subsequent QPW prompts target it.
+              if (cid && n.id !== activeNodeId) onSelectNode(n.id, 'replace')
+              onSelectComponent(cid)
+            }}
             onEditText={onEditText}
             onSelect={(mode) => onSelectNode(n.id, mode)}
             onMoveSelection={onMoveSelection}
             onResize={(next) => onResizeNode(n.id, next)}
             onConnectData={() => onConnectData(n.id)}
+            canvasMode={canvasMode}
             onAction={onAction}
             onSendMessage={onSendMessage}
             onDelete={() => onDelete(n.id)}
