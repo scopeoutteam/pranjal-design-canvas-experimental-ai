@@ -11,6 +11,7 @@ export default function ChatBody({
   theme,
   selectedComponentId,
   onSelectComponent,
+  onEditText,
   onAction,
   onSendMessage,
 }: {
@@ -21,6 +22,7 @@ export default function ChatBody({
   theme?: 'light' | 'dark'
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
+  onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
 }) {
@@ -51,6 +53,7 @@ export default function ChatBody({
           theme={theme}
           selectedComponentId={selectedComponentId}
           onSelectComponent={onSelectComponent}
+          onEditText={onEditText}
           onAction={onAction}
           onSendMessage={onSendMessage}
         />
@@ -120,6 +123,7 @@ function LiveBody({
   theme,
   selectedComponentId,
   onSelectComponent,
+  onEditText,
   onAction,
   onSendMessage,
 }: {
@@ -130,6 +134,7 @@ function LiveBody({
   theme?: 'light' | 'dark'
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
+  onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
 }) {
@@ -180,7 +185,7 @@ function LiveBody({
         ) : null}
 
         {surface ? (
-          <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} />
+          <A2uiRenderer messages={surface} onAction={(ev) => onAction?.(ev.name, ev.context)} selectedComponentId={selectedComponentId} onSelectComponent={onSelectComponent} onEditText={onEditText} />
         ) : null}
 
         {/* Loading state shown via shimmer overlay in CanvasNode */}

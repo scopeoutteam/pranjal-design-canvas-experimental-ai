@@ -52,11 +52,13 @@ export default function A2uiRenderer({
   onAction,
   selectedComponentId,
   onSelectComponent,
+  onEditText,
 }: {
   messages: A2uiMessage[]
   onAction: OnAction
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
+  onEditText?: (componentId: string, newText: string) => void
 }) {
   const components = useMemo<ComponentMap>(() => {
     const map = new Map<string, A2uiComponent>()
@@ -105,6 +107,7 @@ export default function A2uiRenderer({
         map={components}
         onAction={onAction}
         selectedComponentId={selectedComponentId}
+        onEditText={onEditText}
       />
     </FluentProvider>
   )
@@ -115,11 +118,13 @@ function Node({
   map,
   onAction,
   selectedComponentId,
+  onEditText,
 }: {
   id: string
   map: ComponentMap
   onAction: OnAction
   selectedComponentId?: string | null
+  onEditText?: (componentId: string, newText: string) => void
 }) {
   const c = map.get(id)
   if (!c) {
@@ -165,7 +170,7 @@ function Node({
           }}
         >
           {((c.children as string[]) ?? []).map((cid) => (
-            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} />
+            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
           ))}
         </div>
       )
@@ -204,7 +209,7 @@ function Node({
           }}
         >
           {((c.children as string[]) ?? []).map((cid) => (
-            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} />
+            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
           ))}
         </div>
       )
@@ -221,7 +226,7 @@ function Node({
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {((c.children as string[]) ?? []).map((cid) => (
-              <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} />
+              <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
             ))}
           </div>
         </Card>
@@ -243,7 +248,10 @@ function Node({
           style={{ color, overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%' }}
           block
         >
-          {text}
+          <EditableText
+            value={text}
+            onChange={onEditText ? (v) => onEditText(c.id as string, v) : undefined}
+          />
         </Text>
       )
     }
@@ -282,7 +290,10 @@ function Node({
           color={(c.color as 'brand' | 'danger' | 'important' | 'informative' | 'severe' | 'subtle' | 'success' | 'warning') ?? 'brand'}
           shape={(c.shape as 'rounded' | 'circular' | 'square') ?? 'circular'}
         >
-          {c.text as string}
+          <EditableText
+            value={c.text as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v) : undefined}
+          />
         </Badge>
       )
     }
@@ -296,7 +307,10 @@ function Node({
           onClick={onClick ? () => fire(onClick) : undefined}
           style={{ cursor: onClick ? 'pointer' : 'default' }}
         >
-          {c.text as string}
+          <EditableText
+            value={c.text as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v) : undefined}
+          />
         </Tag>
       )
     }
@@ -313,7 +327,10 @@ function Node({
           disabled={c.disabled as boolean | undefined}
           onClick={() => fire(onPress)}
         >
-          {c.text as string}
+          <EditableText
+            value={c.text as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v) : undefined}
+          />
         </Button>
       )
     }
@@ -466,7 +483,7 @@ function Node({
               <AccordionHeader>{it.header}</AccordionHeader>
               <AccordionPanel>
                 {it.panelChildId ? (
-                  <Node id={it.panelChildId} map={map} onAction={onAction} selectedComponentId={selectedComponentId} />
+                  <Node id={it.panelChildId} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
                 ) : null}
               </AccordionPanel>
             </AccordionItem>
@@ -480,13 +497,19 @@ function Node({
       if (onPress) {
         return (
           <Link as="button" onClick={() => fire(onPress)}>
-            {c.text as string}
+            <EditableText
+              value={c.text as string}
+              onChange={onEditText ? (v) => onEditText(c.id, v) : undefined}
+            />
           </Link>
         )
       }
       return (
         <Link href={c.href as string} target="_blank">
-          {c.text as string}
+          <EditableText
+            value={c.text as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v) : undefined}
+          />
         </Link>
       )
     }
@@ -554,7 +577,7 @@ function Node({
           }}
         >
           {((c.children as string[]) ?? []).map((cid) => (
-            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} />
+            <Node key={cid} id={cid} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
           ))}
         </div>
       )
@@ -616,6 +639,86 @@ function Node({
     <div data-a2ui-id={id} style={wrapStyle}>
       {renderInner()}
     </div>
+  )
+}
+
+function EditableText({
+  value,
+  onChange,
+  style,
+}: {
+  value: string
+  onChange?: (next: string) => void
+  style?: React.CSSProperties
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editing) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.select()
+      })
+    }
+  }, [editing])
+
+  if (!onChange) {
+    return <>{value}</>
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setEditing(false)
+          if (draft !== value) onChange(draft)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            inputRef.current?.blur()
+          } else if (e.key === 'Escape') {
+            setDraft(value)
+            setEditing(false)
+          }
+          e.stopPropagation()
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onDoubleClick={(e) => e.stopPropagation()}
+        style={{
+          font: 'inherit',
+          color: 'inherit',
+          background: 'transparent',
+          border: '1px solid #0f6cbd',
+          borderRadius: 4,
+          padding: '0 4px',
+          margin: '-1px -5px',
+          outline: 'none',
+          minWidth: 24,
+          width: `${Math.max(4, draft.length + 1)}ch`,
+          ...style,
+        }}
+      />
+    )
+  }
+
+  return (
+    <span
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        setDraft(value)
+        setEditing(true)
+      }}
+      style={{ cursor: 'inherit', ...style }}
+    >
+      {value}
+    </span>
   )
 }
 

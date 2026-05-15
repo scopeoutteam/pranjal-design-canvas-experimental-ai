@@ -7,6 +7,7 @@ export default function ComponentBody({
   error,
   selectedComponentId,
   onSelectComponent,
+  onEditText,
   onAction,
 }: {
   surface?: A2uiMessage[] | null
@@ -15,6 +16,7 @@ export default function ComponentBody({
   theme?: 'light' | 'dark'
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
+  onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
 } = {}) {
   return (
@@ -39,6 +41,7 @@ export default function ComponentBody({
           onAction={(ev) => onAction?.(ev.name, ev.context)}
           selectedComponentId={selectedComponentId}
           onSelectComponent={onSelectComponent}
+          onEditText={onEditText}
         />
       ) : null}
       {/* Loading state shown via shimmer overlay in CanvasNode */}

@@ -226,6 +226,46 @@ export default function App() {
     setSelectedComponentId(componentId)
   }, [])
 
+  // Double-click-to-edit: rewrite a component's text in-place, preferring the
+  // live conversation surface, falling back to node.surface for flyout-spawned
+  // components that haven't seen an LLM turn yet.
+  const editComponentText = useCallback(
+    (componentId: string, newText: string) => {
+      if (!activeNodeId) return
+      const rewrite = (msgs: A2uiMessage[] | null | undefined): A2uiMessage[] | null => {
+        if (!msgs) return msgs ?? null
+        return msgs.map((m) => {
+          if ('updateComponents' in m && m.updateComponents?.components) {
+            return {
+              ...m,
+              updateComponents: {
+                ...m.updateComponents,
+                components: m.updateComponents.components.map((c) =>
+                  c.id === componentId ? { ...c, text: newText } : c,
+                ) as never,
+              },
+            } as A2uiMessage
+          }
+          return m
+        })
+      }
+      const live = conversations.get(activeNodeId)?.surface
+      if (live) {
+        updateConversation(activeNodeId, (c) => ({ ...c, surface: rewrite(c.surface) }))
+        return
+      }
+      // Flyout-spawned component, no live conversation yet — mutate node.surface
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== activeNodeId) return n
+          const rewritten = rewrite(n.surface as A2uiMessage[] | null | undefined)
+          return rewritten ? ({ ...n, surface: rewritten as unknown[] } as CanvasNodeData) : n
+        }),
+      )
+    },
+    [activeNodeId, conversations, updateConversation],
+  )
+
   // ── Generation ──────────────────────────────────────────────────
   const spawnNodeAt = useCallback(
     (kind: NodeKind, index: number, totalNew: number): string => {
@@ -453,6 +493,7 @@ export default function App() {
         onMoveSelection={moveSelection}
         onSelectNode={selectNode}
         onSelectComponent={selectComponent}
+        onEditText={editComponentText}
         onSetSelection={setSelection}
         onClearSelection={clearSelection}
         onDelete={deleteNodes}

@@ -5,6 +5,7 @@ import MobileBody from './MobileBody'
 import WebBody from './WebBody'
 import ComponentBody from './ComponentBody'
 import type { Conversation, SelectionMode } from '../App'
+import type { A2uiMessage } from '../a2ui/types'
 
 const INTERACTIVE_SELECTOR =
   'button, input, textarea, select, a, [role="button"], [role="radio"], [role="checkbox"], [role="switch"], [role="option"], [role="combobox"], [role="link"], [role="menuitem"], [role="tab"], [contenteditable="true"]'
@@ -38,6 +39,7 @@ export default function CanvasNode({
   onArrange,
   selectedComponentId,
   onSelectComponent,
+  onEditText,
   getSnap,
   onSetGuides,
   selectedIds,
@@ -59,6 +61,7 @@ export default function CanvasNode({
   onArrange?: (axis: 'horizontal' | 'vertical') => void
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
+  onEditText?: (componentId: string, newText: string) => void
   getSnap?: (
     bounds: { x: number; y: number; w: number; h: number },
     excludeIds: Set<string>,
@@ -197,6 +200,20 @@ export default function CanvasNode({
           onCopy={onCopy}
           onCut={onCut}
           onRename={onRename}
+          onPlay={() => {
+            const surface =
+              (conversation?.surface as A2uiMessage[] | null | undefined) ??
+              (node.surface as A2uiMessage[] | undefined) ??
+              null
+            if (!surface) return
+            try {
+              const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(surface))))
+              const url = `${window.location.origin}/preview#kind=${node.kind}&title=${encodeURIComponent(title)}&surface=${encodeURIComponent(b64)}`
+              window.open(url, '_blank', 'noopener,noreferrer')
+            } catch (e) {
+              console.error('Preview encode failed', e)
+            }
+          }}
         />
       )}
       <div
@@ -218,6 +235,7 @@ export default function CanvasNode({
             history={isActive ? conversation?.messages ?? [] : []}
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
+            onEditText={onEditText}
             onAction={onAction}
             onSendMessage={onSendMessage}
           />
@@ -230,6 +248,7 @@ export default function CanvasNode({
             theme={isActive ? conversation?.theme ?? 'light' : 'light'}
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
+            onEditText={onEditText}
             onAction={onAction}
           />
         )}
@@ -241,6 +260,7 @@ export default function CanvasNode({
             theme={isActive ? conversation?.theme ?? 'light' : 'light'}
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
+            onEditText={onEditText}
             onAction={onAction}
           />
         )}
@@ -254,6 +274,7 @@ export default function CanvasNode({
             theme={isActive ? conversation?.theme ?? 'light' : 'light'}
             selectedComponentId={selectedComponentId}
             onSelectComponent={onSelectComponent}
+            onEditText={onEditText}
             onAction={onAction}
           />
         )}
@@ -348,21 +369,50 @@ function TidyVerticalIcon() {
 function ShimmerOverlay() {
   return (
     <>
+      {/* Wide soft-edged gradient with a long fade ramp; eased timing function
+          (cubic-bezier matching CSS "ease-in-out") so the sweep feels organic
+          rather than mechanical. */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(110deg, transparent 30%, rgba(74,70,190,0.10) 45%, rgba(74,70,190,0.20) 50%, rgba(92,188,193,0.10) 55%, transparent 70%)',
-          backgroundSize: '220% 100%',
-          animation: 'a2ui-shimmer 1.8s linear infinite',
+            'linear-gradient(110deg, ' +
+              'rgba(74,70,190,0) 0%, ' +
+              'rgba(74,70,190,0.04) 25%, ' +
+              'rgba(74,70,190,0.12) 40%, ' +
+              'rgba(83,129,191,0.20) 50%, ' +
+              'rgba(92,188,193,0.12) 60%, ' +
+              'rgba(92,188,193,0.04) 75%, ' +
+              'rgba(92,188,193,0) 100%' +
+            ')',
+          backgroundSize: '260% 100%',
+          animation: 'a2ui-shimmer 2.6s cubic-bezier(0.42, 0, 0.58, 1) infinite',
           pointerEvents: 'none',
           borderRadius: 'inherit',
-          mixBlendMode: 'normal',
+          willChange: 'background-position',
           zIndex: 5,
         }}
       />
-      <style>{`@keyframes a2ui-shimmer { 0% { background-position: -120% 0; } 100% { background-position: 220% 0; } }`}</style>
+      {/* Subtle breathing tint layer — synced to half the shimmer cadence, gives
+          the impression of depth instead of a single repeating bar. */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'radial-gradient(120% 80% at 50% 50%, rgba(74,70,190,0.06) 0%, rgba(92,188,193,0.04) 50%, transparent 75%)',
+          animation: 'a2ui-shimmer-breathe 5.2s ease-in-out infinite',
+          pointerEvents: 'none',
+          borderRadius: 'inherit',
+          opacity: 0.7,
+          zIndex: 4,
+        }}
+      />
+      <style>{`
+        @keyframes a2ui-shimmer { 0% { background-position: -130% 0; } 100% { background-position: 230% 0; } }
+        @keyframes a2ui-shimmer-breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.85; } }
+      `}</style>
     </>
   )
 }
@@ -376,6 +426,7 @@ function NodeHeader({
   onCopy,
   onCut,
   onRename,
+  onPlay,
 }: {
   title: string
   kind: NodeKind
@@ -385,6 +436,7 @@ function NodeHeader({
   onCopy?: () => void
   onCut?: () => void
   onRename?: (title: string) => void
+  onPlay?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -500,13 +552,32 @@ function NodeHeader({
         </div>
       )}
       <div ref={menuRef} style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-        {kind === 'chat' && (
-          <CircleBtn label="Play">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path d="M3 2 L10 6 L3 10 Z" fill="currentColor" />
-            </svg>
-          </CircleBtn>
-        )}
+        <button
+          aria-label="Open preview"
+          title="Open preview in a new tab"
+          onClick={(e) => {
+            e.stopPropagation()
+            onPlay?.()
+          }}
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 999,
+            border: '1px solid #e5e5e5',
+            background: '#ffffff',
+            color: '#525252',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f5f5')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M3 2 L10 6 L3 10 Z" fill="currentColor" />
+          </svg>
+        </button>
         <button
           aria-label="More"
           aria-haspopup="menu"

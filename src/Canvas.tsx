@@ -118,6 +118,7 @@ export default function Canvas({
   onMoveSelection,
   onSelectNode,
   onSelectComponent,
+  onEditText,
   onSetSelection,
   onClearSelection,
   onDelete,
@@ -140,6 +141,7 @@ export default function Canvas({
   onMoveSelection: (dx: number, dy: number) => void
   onSelectNode: (id: string, mode: SelectionMode) => void
   onSelectComponent: (componentId: string | null) => void
+  onEditText: (componentId: string, newText: string) => void
   onSetSelection: (ids: string[]) => void
   onClearSelection: () => void
   onDelete: (sourceId: string) => void
