@@ -307,10 +307,14 @@ export default function App() {
           updateConversation(nodeId, (c) => ({
             ...c,
             messages: [...c.messages, { role: 'assistant', content: data?.raw ?? '' }],
-            surface,
-            theme: extractTheme(surface),
+            // Don't blank the canvas when the LLM returns an unparseable surface
+            surface: surface && Array.isArray(surface) && surface.length > 0 ? surface : c.surface,
+            theme: surface ? extractTheme(surface) : c.theme,
             loading: false,
-            error: null,
+            error:
+              surface && Array.isArray(surface) && surface.length > 0
+                ? null
+                : 'AI returned an unparseable surface — kept the previous one',
           }))
           if (first.title) {
             setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, title: first.title } : n)))
@@ -345,14 +349,20 @@ export default function App() {
             })
           }
         } else {
-          const surface = (data?.messages as A2uiMessage[] | null) ?? null
+          const newSurface = (data?.messages as A2uiMessage[] | null) ?? null
           updateConversation(nodeId, (c) => ({
             ...c,
             messages: [...c.messages, { role: 'assistant', content: data?.raw ?? '' }],
-            surface,
-            theme: extractTheme(surface),
+            surface:
+              newSurface && Array.isArray(newSurface) && newSurface.length > 0
+                ? newSurface
+                : c.surface,
+            theme: newSurface ? extractTheme(newSurface) : c.theme,
             loading: false,
-            error: null,
+            error:
+              newSurface && Array.isArray(newSurface) && newSurface.length > 0
+                ? null
+                : 'AI returned an unparseable surface — kept the previous one',
           }))
         }
       } catch (err: unknown) {
