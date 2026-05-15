@@ -10,7 +10,7 @@ function anthropicProxy(env: Record<string, string>): Plugin {
   return {
     name: 'anthropic-proxy',
     configureServer(server) {
-      const apiKey = env.ANTHROPIC_API_KEY
+      const envApiKey = env.ANTHROPIC_API_KEY
       const catalogPath = resolve(__dirname, 'src/catalog/fluent-v9.json')
       const defaultCatalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
       // mutable so settings UI can hot-swap the design system at runtime
@@ -20,7 +20,12 @@ function anthropicProxy(env: Record<string, string>): Plugin {
         (c && typeof c === 'object' && 'catalogId' in c && typeof (c as { catalogId: unknown }).catalogId === 'string'
           ? (c as { catalogId: string }).catalogId
           : 'unknown')
-      const client = apiKey ? new Anthropic({ apiKey }) : null
+
+      // Mutable Anthropic client + key source so settings UI can update the key at runtime
+      let client = envApiKey ? new Anthropic({ apiKey: envApiKey }) : null
+      let keySource: 'env' | 'runtime' | 'none' = envApiKey ? 'env' : 'none'
+      const maskKey = (k: string) =>
+        k.length > 12 ? `${k.slice(0, 6)}…${k.slice(-4)}` : '••••'
 
       const requireKey = (res: Parameters<Connect.NextHandleFunction>[1]) => {
         if (client) return true
@@ -354,11 +359,74 @@ function anthropicProxy(env: Record<string, string>): Plugin {
         }
       }
 
+      const configStatusHandler: Connect.NextHandleFunction = (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'GET only' }))
+          return
+        }
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json')
+        res.end(
+          JSON.stringify({
+            hasKey: !!client,
+            source: keySource,
+            envHasKey: !!envApiKey,
+            maskedKey: keySource === 'env' && envApiKey ? maskKey(envApiKey) : null,
+          }),
+        )
+      }
+
+      const configApiKeyHandler: Connect.NextHandleFunction = async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'POST only' }))
+          return
+        }
+        try {
+          const body = (await readJson(req)) as { apiKey?: string; reset?: boolean }
+          if (body.reset) {
+            client = envApiKey ? new Anthropic({ apiKey: envApiKey }) : null
+            keySource = envApiKey ? 'env' : 'none'
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ hasKey: !!client, source: keySource, reset: true }))
+            return
+          }
+          const key = body.apiKey?.trim()
+          if (!key) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'apiKey required' }))
+            return
+          }
+          if (!key.startsWith('sk-ant-')) {
+            res.statusCode = 400
+            res.end(
+              JSON.stringify({
+                error: 'Looks like an invalid Anthropic key (expected to start with sk-ant-)',
+              }),
+            )
+            return
+          }
+          client = new Anthropic({ apiKey: key })
+          keySource = 'runtime'
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ hasKey: true, source: 'runtime' }))
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: message }))
+        }
+      }
+
       server.middlewares.use('/api/route', routeHandler)
       server.middlewares.use('/api/generate', generateHandler)
       server.middlewares.use('/api/catalog/get', catalogGetHandler)
       server.middlewares.use('/api/catalog/set', catalogSetHandler)
       server.middlewares.use('/api/catalog/from-storybook', catalogFromStorybookHandler)
+      server.middlewares.use('/api/config/status', configStatusHandler)
+      server.middlewares.use('/api/config/api-key', configApiKeyHandler)
     },
   }
 }

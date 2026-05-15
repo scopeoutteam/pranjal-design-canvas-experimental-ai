@@ -447,11 +447,17 @@ function SettingsFlyout() {
         padding: 14,
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: 14,
         boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
         width: 320,
+        maxHeight: 'calc(100vh - 160px)',
+        overflowY: 'auto',
       }}
     >
+      <ApiKeySection />
+
+      <div style={{ height: 1, background: '#f0f0f0' }} />
+
       <div>
         <div style={{ fontSize: 14, fontWeight: 600, color: '#171717' }}>Design system</div>
         <div style={{ fontSize: 12, color: '#737373', marginTop: 4, lineHeight: 1.45 }}>
@@ -609,6 +615,231 @@ function SettingsFlyout() {
       >
         <strong>Note:</strong> the renderer ships with Fluent v9 component mappings. The AI will start using the new catalog's component names immediately, but unmapped components will render as "Unknown component" until renderer support is added.
       </div>
+    </div>
+  )
+}
+
+interface KeyStatus {
+  hasKey: boolean
+  source: 'env' | 'runtime' | 'none'
+  envHasKey: boolean
+  maskedKey: string | null
+}
+
+function ApiKeySection() {
+  const [status, setStatus] = useState<KeyStatus | null>(null)
+  const [draft, setDraft] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [okMsg, setOkMsg] = useState<string | null>(null)
+  const [reveal, setReveal] = useState(false)
+
+  const refresh = async () => {
+    try {
+      const r = await fetch('/api/config/status')
+      const d = (await r.json()) as KeyStatus
+      setStatus(d)
+    } catch {
+      setStatus(null)
+    }
+  }
+
+  useEffect(() => {
+    refresh()
+  }, [])
+
+  const save = async () => {
+    const key = draft.trim()
+    if (!key) return
+    setSaving(true)
+    setError(null)
+    setOkMsg(null)
+    try {
+      const r = await fetch('/api/config/api-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: key }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d?.error || 'Failed to save key')
+      setOkMsg('Key saved for this session')
+      setDraft('')
+      refresh()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const reset = async () => {
+    setSaving(true)
+    setError(null)
+    setOkMsg(null)
+    try {
+      const r = await fetch('/api/config/api-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true }),
+      })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d?.error || 'Failed')
+      setOkMsg(d.source === 'env' ? 'Restored env key' : 'Cleared key (none active)')
+      refresh()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const statusColor =
+    status?.source === 'none' ? '#b91c1c' : status?.source === 'env' ? '#107c10' : '#0f6cbd'
+  const statusLabel =
+    status?.source === 'none'
+      ? 'No key set'
+      : status?.source === 'env'
+      ? `From .env (${status.maskedKey})`
+      : 'Set in app (this session)'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#171717' }}>AI API key</div>
+      <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.45 }}>
+        Anthropic API key used for routing and generation. Stored in server memory only — refresh
+        the page or restart Vite to drop it.
+      </div>
+
+      <div
+        style={{
+          padding: '8px 10px',
+          borderRadius: 8,
+          background: '#fafafa',
+          border: '1px solid #e5e5e5',
+          fontSize: 12,
+          color: '#525252',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <span style={{ width: 8, height: 8, borderRadius: 999, background: statusColor, flexShrink: 0 }} />
+        <span style={{ flex: 1 }}>{statusLabel}</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid #e5e5e5',
+            borderRadius: 8,
+            paddingRight: 6,
+          }}
+        >
+          <input
+            type={reveal ? 'text' : 'password'}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="sk-ant-api03-…"
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              padding: '8px 10px',
+              fontSize: 13,
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              color: '#171717',
+              minWidth: 0,
+              background: 'transparent',
+            }}
+          />
+          <button
+            onClick={() => setReveal((v) => !v)}
+            aria-label={reveal ? 'Hide' : 'Show'}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#737373',
+              cursor: 'pointer',
+              fontSize: 11,
+              padding: '4px 6px',
+              fontFamily: 'inherit',
+            }}
+          >
+            {reveal ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={save}
+            disabled={saving || !draft.trim()}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: 'none',
+              background: saving || !draft.trim() ? '#e5e5e5' : '#171717',
+              color: saving || !draft.trim() ? '#a3a3a3' : '#ffffff',
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              cursor: saving || !draft.trim() ? 'default' : 'pointer',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save key'}
+          </button>
+          <button
+            onClick={reset}
+            disabled={saving || status?.source !== 'runtime'}
+            title="Restore the key from .env (or clear if no env key)"
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid #e5e5e5',
+              background: '#ffffff',
+              color: status?.source === 'runtime' ? '#171717' : '#a3a3a3',
+              fontSize: 13,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              cursor: saving || status?.source !== 'runtime' ? 'default' : 'pointer',
+            }}
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
+      {okMsg ? (
+        <div
+          style={{
+            padding: '6px 10px',
+            borderRadius: 6,
+            background: '#f0fdf4',
+            border: '1px solid #bbf7d0',
+            color: '#107c10',
+            fontSize: 12,
+          }}
+        >
+          {okMsg}
+        </div>
+      ) : null}
+      {error ? (
+        <div
+          style={{
+            padding: '6px 10px',
+            borderRadius: 6,
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#b91c1c',
+            fontSize: 12,
+          }}
+        >
+          {error}
+        </div>
+      ) : null}
     </div>
   )
 }
