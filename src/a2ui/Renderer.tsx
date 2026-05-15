@@ -58,7 +58,7 @@ export default function A2uiRenderer({
   onAction: OnAction
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
-  onEditText?: (componentId: string, newText: string) => void
+  onEditText?: (componentId: string, newText: string, field?: string) => void
 }) {
   const components = useMemo<ComponentMap>(() => {
     const map = new Map<string, A2uiComponent>()
@@ -124,7 +124,7 @@ function Node({
   map: ComponentMap
   onAction: OnAction
   selectedComponentId?: string | null
-  onEditText?: (componentId: string, newText: string) => void
+  onEditText?: (componentId: string, newText: string, field?: string) => void
 }) {
   const c = map.get(id)
   if (!c) {
@@ -440,8 +440,18 @@ function Node({
       return (
         <MessageBar intent={(c.intent as 'info' | 'warning' | 'error' | 'success') ?? 'info'}>
           <MessageBarBody>
-            {c.title ? <MessageBarTitle>{c.title as string}</MessageBarTitle> : null}
-            {c.text as string}
+            {c.title ? (
+              <MessageBarTitle>
+                <EditableText
+                  value={c.title as string}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, 'title') : undefined}
+                />
+              </MessageBarTitle>
+            ) : null}
+            <EditableText
+              value={c.text as string}
+              onChange={onEditText ? (v) => onEditText(c.id, v, 'text') : undefined}
+            />
           </MessageBarBody>
         </MessageBar>
       )
@@ -547,19 +557,32 @@ function Node({
           }}
         >
           <Text size={200} weight="semibold" style={{ color: '#737373', textTransform: 'uppercase', letterSpacing: 0.4 }} block>
-            {c.label as string}
+            <EditableText
+              value={c.label as string}
+              onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
+            />
           </Text>
           <Text size={700} weight="semibold" as="div" style={{ color: '#171717', lineHeight: 1.1 }} block>
-            {c.value as string}
+            <EditableText
+              value={c.value as string}
+              onChange={onEditText ? (v) => onEditText(c.id, v, 'value') : undefined}
+            />
           </Text>
           {c.sublabel ? (
             <Text size={200} style={{ color: '#737373' }} block>
-              {c.sublabel as string}
+              <EditableText
+                value={c.sublabel as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'sublabel') : undefined}
+              />
             </Text>
           ) : null}
           {trend && c.trendValue ? (
             <Text size={200} weight="semibold" style={{ color: trendColor }} block>
-              {trendArrow} {c.trendValue as string}
+              {trendArrow}{' '}
+              <EditableText
+                value={c.trendValue as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'trendValue') : undefined}
+              />
             </Text>
           ) : null}
         </div>

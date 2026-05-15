@@ -421,6 +421,7 @@ export default function Canvas({
             conversation={conversations.get(n.id)}
             selectedComponentId={n.id === activeNodeId ? selectedComponentId : null}
             onSelectComponent={(cid) => onSelectComponent(cid)}
+            onEditText={onEditText}
             onSelect={(mode) => onSelectNode(n.id, mode)}
             onMoveSelection={onMoveSelection}
             onAction={onAction}

@@ -230,7 +230,7 @@ export default function App() {
   // live conversation surface, falling back to node.surface for flyout-spawned
   // components that haven't seen an LLM turn yet.
   const editComponentText = useCallback(
-    (componentId: string, newText: string) => {
+    (componentId: string, newText: string, field: string = 'text') => {
       if (!activeNodeId) return
       const rewrite = (msgs: A2uiMessage[] | null | undefined): A2uiMessage[] | null => {
         if (!msgs) return msgs ?? null
@@ -241,7 +241,7 @@ export default function App() {
               updateComponents: {
                 ...m.updateComponents,
                 components: m.updateComponents.components.map((c) =>
-                  c.id === componentId ? { ...c, text: newText } : c,
+                  c.id === componentId ? { ...c, [field]: newText } : c,
                 ) as never,
               },
             } as A2uiMessage
