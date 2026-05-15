@@ -14,6 +14,7 @@ export default function ChatBody({
   onEditText,
   onAction,
   onSendMessage,
+  height,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -25,6 +26,7 @@ export default function ChatBody({
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
+  height?: number
 }) {
   const hasLive = !!surface || !!loading || !!error || (history && history.length > 0)
 
@@ -39,7 +41,7 @@ export default function ChatBody({
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04)',
         display: 'flex',
         flexDirection: 'column',
-        height: 775,
+        height: height ?? 775,
       }}
     >
       <Notch />

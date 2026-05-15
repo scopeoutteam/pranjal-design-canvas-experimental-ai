@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { NODE_DEFAULTS, type CanvasNodeData, type NodeKind } from '../types'
+import { MIN_NODE_SIZE, NODE_DEFAULTS, type CanvasNodeData, type NodeKind } from '../types'
 import ChatBody from './ChatBody'
 import MobileBody from './MobileBody'
 import WebBody from './WebBody'
@@ -21,6 +21,18 @@ interface DragStart {
   lastWorldY: number
 }
 
+type ResizeHandle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
+
+interface ResizeStart {
+  mx: number
+  my: number
+  startX: number
+  startY: number
+  startW: number
+  startH: number
+  handle: ResizeHandle
+}
+
 export default function CanvasNode({
   node,
   scale,
@@ -29,6 +41,7 @@ export default function CanvasNode({
   conversation,
   onSelect,
   onMoveSelection,
+  onResize,
   onAction,
   onSendMessage,
   onDelete,
@@ -51,6 +64,7 @@ export default function CanvasNode({
   conversation?: Conversation
   onSelect: (mode: SelectionMode) => void
   onMoveSelection: (dx: number, dy: number) => void
+  onResize?: (next: { x: number; y: number; width: number; height: number }) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage?: (text: string) => void
   onDelete?: () => void
@@ -69,12 +83,17 @@ export default function CanvasNode({
   onSetGuides?: (g: { x: number | null; y: number | null }) => void
   selectedIds?: Set<string>
 }) {
-  const { width, title: defaultTitle } = NODE_DEFAULTS[node.kind]
+  const { width: defaultWidth, height: defaultHeight, title: defaultTitle } = NODE_DEFAULTS[node.kind]
+  const width = node.width ?? defaultWidth
+  const height = node.height ?? defaultHeight
   const title = node.title ?? defaultTitle
+  const canResize = node.kind === 'mobile' || node.kind === 'chat'
   const [dragging, setDragging] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [resizing, setResizing] = useState<ResizeHandle | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const dragStart = useRef<DragStart | null>(null)
+  const resizeStart = useRef<ResizeStart | null>(null)
 
   useEffect(() => {
     if (!contextMenu) return
@@ -172,7 +191,56 @@ export default function CanvasNode({
     }
   }, [dragging, scale, onMoveSelection, getSnap, onSetGuides, node.id, selectedIds])
 
-  const showRing = selected || dragging || hovered
+  useEffect(() => {
+    if (!resizing) return
+    const onMouseMove = (e: MouseEvent) => {
+      const s = resizeStart.current
+      if (!s || !onResize) return
+      const dx = (e.clientX - s.mx) / scale
+      const dy = (e.clientY - s.my) / scale
+      const min = MIN_NODE_SIZE[node.kind]
+      let nx = s.startX
+      let ny = s.startY
+      let nw = s.startW
+      let nh = s.startH
+      if (s.handle.includes('e')) nw = Math.max(min.width, s.startW + dx)
+      if (s.handle.includes('s')) nh = Math.max(min.height, s.startH + dy)
+      if (s.handle.includes('w')) {
+        nw = Math.max(min.width, s.startW - dx)
+        nx = s.startX + (s.startW - nw)
+      }
+      if (s.handle.includes('n')) {
+        nh = Math.max(min.height, s.startH - dy)
+        ny = s.startY + (s.startH - nh)
+      }
+      onResize({ x: nx, y: ny, width: Math.round(nw), height: Math.round(nh) })
+    }
+    const onMouseUp = () => setResizing(null)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [resizing, scale, onResize, node.kind])
+
+  const startResize = (handle: ResizeHandle) => (e: React.MouseEvent) => {
+    if (e.button !== 0 || !onResize) return
+    e.preventDefault()
+    e.stopPropagation()
+    resizeStart.current = {
+      mx: e.clientX,
+      my: e.clientY,
+      startX: node.x,
+      startY: node.y,
+      startW: width,
+      startH: height,
+      handle,
+    }
+    setResizing(handle)
+  }
+
+  const showRing = selected || dragging || hovered || !!resizing
   const ringColor = selected || dragging ? '#0f6cbd' : 'rgba(15,108,189,0.45)'
   const ringWidth = selected ? 2 : dragging ? 2 : 1.5
 
@@ -190,6 +258,9 @@ export default function CanvasNode({
         cursor: dragging ? 'grabbing' : 'default',
       }}
     >
+      {canResize && (showRing || resizing) ? (
+        <ResizeHandles onStart={startResize} headerOffset={node.kind === 'component' ? 0 : 12 + 22} />
+      ) : null}
       {node.kind !== 'component' && (
         <NodeHeader
           title={title}
@@ -238,6 +309,7 @@ export default function CanvasNode({
             onEditText={onEditText}
             onAction={onAction}
             onSendMessage={onSendMessage}
+            height={Math.max(0, height - 48)}
           />
         )}
         {node.kind === 'mobile' && (
@@ -250,6 +322,7 @@ export default function CanvasNode({
             onSelectComponent={onSelectComponent}
             onEditText={onEditText}
             onAction={onAction}
+            height={Math.max(0, height - 48)}
           />
         )}
         {node.kind === 'web' && (
@@ -735,6 +808,58 @@ function CircleBtn({ children, label }: { children: React.ReactNode; label: stri
     >
       {children}
     </button>
+  )
+}
+
+function ResizeHandles({
+  onStart,
+  headerOffset,
+}: {
+  onStart: (handle: ResizeHandle) => (e: React.MouseEvent) => void
+  headerOffset: number
+}) {
+  const dot = (cursor: string, style: React.CSSProperties, handle: ResizeHandle) => (
+    <div
+      onMouseDown={onStart(handle)}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        width: 10,
+        height: 10,
+        background: '#ffffff',
+        border: '1.5px solid #0f6cbd',
+        borderRadius: 2,
+        cursor,
+        zIndex: 20,
+        ...style,
+      }}
+    />
+  )
+  const edge = (cursor: string, style: React.CSSProperties, handle: ResizeHandle) => (
+    <div
+      onMouseDown={onStart(handle)}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        position: 'absolute',
+        cursor,
+        zIndex: 19,
+        ...style,
+      }}
+    />
+  )
+  // Body box starts at top: headerOffset and extends to bottom of wrapper.
+  // We anchor handles to that body box so the header pill isn't in the way.
+  return (
+    <>
+      {edge('ew-resize', { top: headerOffset + 8, bottom: 0, left: -5, width: 10 }, 'w')}
+      {edge('ew-resize', { top: headerOffset + 8, bottom: 0, right: -5, width: 10 }, 'e')}
+      {edge('ns-resize', { left: 8, right: 8, top: headerOffset - 5, height: 10 }, 'n')}
+      {edge('ns-resize', { left: 8, right: 8, bottom: -5, height: 10 }, 's')}
+      {dot('nwse-resize', { top: headerOffset - 5, left: -5 }, 'nw')}
+      {dot('nesw-resize', { top: headerOffset - 5, right: -5 }, 'ne')}
+      {dot('nesw-resize', { bottom: -5, left: -5 }, 'sw')}
+      {dot('nwse-resize', { bottom: -5, right: -5 }, 'se')}
+    </>
   )
 }
 

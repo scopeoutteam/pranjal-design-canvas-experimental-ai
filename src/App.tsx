@@ -159,6 +159,19 @@ export default function App() {
     [selectedIds],
   )
 
+  const resizeNode = useCallback(
+    (id: string, next: { x: number; y: number; width: number; height: number }) => {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === id
+            ? { ...n, x: next.x, y: next.y, width: next.width, height: next.height }
+            : n,
+        ),
+      )
+    },
+    [],
+  )
+
   // Figma-style auto-layout: arrange the current selection in a clean row or
   // column with consistent gaps based on their current axis ordering.
   const arrangeSelection = useCallback(
@@ -527,6 +540,7 @@ export default function App() {
         onAddNode={addNode}
         onAddComponentNode={addComponentNode}
         onMoveSelection={moveSelection}
+        onResizeNode={resizeNode}
         onSelectNode={selectNode}
         onSelectComponent={selectComponent}
         onEditText={editComponentText}

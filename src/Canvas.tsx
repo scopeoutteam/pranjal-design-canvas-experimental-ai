@@ -116,6 +116,7 @@ export default function Canvas({
   onAddNode,
   onAddComponentNode,
   onMoveSelection,
+  onResizeNode,
   onSelectNode,
   onSelectComponent,
   onEditText,
@@ -139,6 +140,7 @@ export default function Canvas({
   onAddNode: (kind: NodeKind, worldX: number, worldY: number) => void
   onAddComponentNode: (worldX: number, worldY: number, title: string, surface: unknown[]) => void
   onMoveSelection: (dx: number, dy: number) => void
+  onResizeNode: (id: string, next: { x: number; y: number; width: number; height: number }) => void
   onSelectNode: (id: string, mode: SelectionMode) => void
   onSelectComponent: (componentId: string | null) => void
   onEditText: (componentId: string, newText: string) => void
@@ -424,6 +426,7 @@ export default function Canvas({
             onEditText={onEditText}
             onSelect={(mode) => onSelectNode(n.id, mode)}
             onMoveSelection={onMoveSelection}
+            onResize={(next) => onResizeNode(n.id, next)}
             onAction={onAction}
             onSendMessage={onSendMessage}
             onDelete={() => onDelete(n.id)}

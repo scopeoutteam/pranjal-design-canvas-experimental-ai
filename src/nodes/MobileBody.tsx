@@ -10,6 +10,7 @@ export default function MobileBody({
   onSelectComponent,
   onEditText,
   onAction,
+  height,
 }: {
   surface?: A2uiMessage[] | null
   loading?: boolean
@@ -19,6 +20,7 @@ export default function MobileBody({
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string) => void
   onAction?: (name: string, context: Record<string, unknown> | undefined) => void
+  height?: number
 } = {}) {
   const hasLive = !!surface || !!loading || !!error
   return (
@@ -31,7 +33,7 @@ export default function MobileBody({
         boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04)',
         display: 'flex',
         flexDirection: 'column',
-        height: 775,
+        height: height ?? 775,
       }}
     >
       {hasLive ? (
