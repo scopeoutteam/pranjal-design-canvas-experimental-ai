@@ -1,0 +1,598 @@
+import { defineConfig, loadEnv, type Plugin, type Connect } from 'vite'
+import react from '@vitejs/plugin-react'
+import Anthropic from '@anthropic-ai/sdk'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+type Kind = 'chat' | 'mobile' | 'web' | 'component'
+
+function anthropicProxy(env: Record<string, string>): Plugin {
+  return {
+    name: 'anthropic-proxy',
+    configureServer(server) {
+      const apiKey = env.ANTHROPIC_API_KEY
+      const catalogPath = resolve(__dirname, 'src/catalog/fluent-v9.json')
+      const defaultCatalog = JSON.parse(readFileSync(catalogPath, 'utf8'))
+      // mutable so settings UI can hot-swap the design system at runtime
+      let activeCatalog: unknown = defaultCatalog
+      let catalogStr = JSON.stringify(activeCatalog)
+      const getCatalogId = (c: unknown): string =>
+        (c && typeof c === 'object' && 'catalogId' in c && typeof (c as { catalogId: unknown }).catalogId === 'string'
+          ? (c as { catalogId: string }).catalogId
+          : 'unknown')
+      const client = apiKey ? new Anthropic({ apiKey }) : null
+
+      const requireKey = (res: Parameters<Connect.NextHandleFunction>[1]) => {
+        if (client) return true
+        res.statusCode = 500
+        res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY missing in .env' }))
+        return false
+      }
+
+      const routeHandler: Connect.NextHandleFunction = async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'POST only' }))
+          return
+        }
+        if (!requireKey(res)) return
+        try {
+          const body = (await readJson(req)) as { prompt: string }
+          if (!body?.prompt) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'prompt required' }))
+            return
+          }
+          const response = await client!.messages.create({
+            model: 'claude-opus-4-7',
+            max_tokens: 800,
+            output_config: {
+              effort: 'low',
+              format: {
+                type: 'json_schema',
+                schema: {
+                  type: 'object',
+                  properties: {
+                    kind: { type: 'string', enum: ['chat', 'mobile', 'web'] },
+                    reasoning: { type: 'string', description: 'One short sentence on why.' },
+                    refined_intent: {
+                      type: 'string',
+                      description:
+                        'A concise, well-phrased restatement of what the user wants, ready to hand off to the block-specific agent.',
+                    },
+                  },
+                  required: ['kind', 'reasoning', 'refined_intent'],
+                  additionalProperties: false,
+                },
+              },
+            },
+            system: ROUTER_SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: body.prompt }],
+          })
+          const text = response.content.find((b) => b.type === 'text')
+          const raw = text && 'text' in text ? text.text : ''
+          let parsed: { kind: Kind; reasoning: string; refined_intent: string } | null = null
+          try {
+            parsed = JSON.parse(raw)
+          } catch {
+            const m = raw.match(/\{[\s\S]*\}/)
+            if (m) parsed = JSON.parse(m[0])
+          }
+          if (!parsed) {
+            parsed = { kind: 'chat', reasoning: 'fallback', refined_intent: body.prompt }
+          }
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(parsed))
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          console.error('[router] error:', message)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: message }))
+        }
+      }
+
+      const generateHandler: Connect.NextHandleFunction = async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'POST only' }))
+          return
+        }
+        if (!requireKey(res)) return
+
+        try {
+          const body = (await readJson(req)) as {
+            kind?: Kind
+            messages: Array<{ role: 'user' | 'assistant'; content: string }>
+            currentSurface?: unknown
+          }
+          const kind: Kind = body.kind ?? 'chat'
+          const messages = body.messages
+          if (!Array.isArray(messages) || messages.length === 0) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'messages[] required' }))
+            return
+          }
+
+          let system = buildSystemPrompt(kind, catalogStr)
+          if (body.currentSurface) {
+            const surfaceSnap = JSON.stringify(body.currentSurface).slice(0, 50000)
+            system += `\n\n# Current surface (your prior output, for iteration)\n\nThis is the surface the user is editing. Regenerate the FULL surface envelope with the user's edits applied, preserving everything else.\n\n${surfaceSnap}`
+          }
+
+          const response = await client!.messages.create({
+            model: 'claude-opus-4-7',
+            max_tokens: 16000,
+            system: [
+              { type: 'text', text: system, cache_control: { type: 'ephemeral' } },
+            ],
+            thinking: { type: 'adaptive' },
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          })
+
+          const text = response.content.find((b) => b.type === 'text')
+          const raw = text && 'text' in text ? text.text : ''
+          const a2ui = extractA2uiJson(raw)
+
+          // Multi-screen detection: if response is { surfaces: [...] }, return as-is.
+          // Otherwise wrap single surface (an A2UI message array) into a single-surface response.
+          let surfaces: Array<{ title?: string; messages: unknown }> | null = null
+          if (a2ui && typeof a2ui === 'object' && !Array.isArray(a2ui) && 'surfaces' in a2ui) {
+            const s = (a2ui as { surfaces: unknown }).surfaces
+            if (Array.isArray(s)) surfaces = s as typeof surfaces
+          } else if (Array.isArray(a2ui)) {
+            surfaces = [{ messages: a2ui }]
+          }
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              surfaces,
+              messages: a2ui,
+              raw,
+              usage: response.usage,
+            }),
+          )
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          console.error('[generate] error:', message)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: message }))
+        }
+      }
+
+      const catalogGetHandler: Connect.NextHandleFunction = (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'GET only' }))
+          return
+        }
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({ catalogId: getCatalogId(activeCatalog), catalog: activeCatalog }))
+      }
+
+      const catalogSetHandler: Connect.NextHandleFunction = async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'POST only' }))
+          return
+        }
+        try {
+          const body = (await readJson(req)) as { url?: string; catalog?: unknown; reset?: boolean }
+          if (body.reset) {
+            activeCatalog = defaultCatalog
+            catalogStr = JSON.stringify(activeCatalog)
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/json')
+            res.end(JSON.stringify({ catalogId: getCatalogId(activeCatalog), reset: true }))
+            return
+          }
+          let next: unknown
+          if (body.catalog) {
+            next = body.catalog
+          } else if (body.url) {
+            const r = await fetch(body.url)
+            if (!r.ok) throw new Error(`Fetch failed: ${r.status} ${r.statusText}`)
+            const ct = r.headers.get('content-type') ?? ''
+            if (ct.includes('application/json') || body.url.endsWith('.json')) {
+              next = await r.json()
+            } else {
+              const txt = await r.text()
+              try {
+                next = JSON.parse(txt)
+              } catch {
+                throw new Error('URL did not return JSON')
+              }
+            }
+          } else {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Provide { url } or { catalog }' }))
+            return
+          }
+          if (!next || typeof next !== 'object' || !('catalogId' in (next as object))) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'Invalid catalog — missing catalogId' }))
+            return
+          }
+          activeCatalog = next
+          catalogStr = JSON.stringify(activeCatalog)
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ catalogId: getCatalogId(activeCatalog) }))
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: message }))
+        }
+      }
+
+      const catalogFromStorybookHandler: Connect.NextHandleFunction = async (req, res) => {
+        if (req.method !== 'POST') {
+          res.statusCode = 405
+          res.end(JSON.stringify({ error: 'POST only' }))
+          return
+        }
+        try {
+          const body = (await readJson(req)) as { url?: string }
+          let rawUrl = body.url?.trim() ?? ''
+          if (!rawUrl) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: 'url required' }))
+            return
+          }
+          // Strip trailing slash, /?path=..., /index.html, etc — normalize to base URL
+          rawUrl = rawUrl.replace(/[?#].*$/, '').replace(/\/(index\.html?|iframe\.html?)?$/, '')
+          const base = rawUrl.replace(/\/$/, '')
+
+          // Try Storybook 7+ /index.json, then /stories.json (SB 6)
+          const tryFetch = async (path: string) => {
+            try {
+              const r = await fetch(`${base}${path}`, { headers: { Accept: 'application/json' } })
+              if (!r.ok) return null
+              return await r.json()
+            } catch {
+              return null
+            }
+          }
+
+          let sbIndex: unknown = await tryFetch('/index.json')
+          if (!sbIndex) sbIndex = await tryFetch('/stories.json')
+          if (!sbIndex) {
+            throw new Error(
+              `Could not load Storybook index from ${base}. Tried /index.json and /stories.json — make sure the URL points to a Storybook deployment.`,
+            )
+          }
+
+          const entries = (sbIndex as { entries?: Record<string, unknown>; stories?: Record<string, unknown> })
+          const records = entries.entries ?? entries.stories ?? {}
+          const componentNames = new Set<string>()
+          for (const id in records) {
+            const e = records[id] as { type?: string; title?: string; name?: string }
+            if (e && (e.type === 'story' || !e.type) && typeof e.title === 'string') {
+              const parts = e.title.split('/')
+              const lastPart = parts[parts.length - 1].trim()
+              if (lastPart) componentNames.add(lastPart)
+            }
+          }
+
+          if (componentNames.size === 0) {
+            throw new Error(
+              'Storybook index parsed but no stories found. The URL may not be a Storybook root, or the deployment hides stories.',
+            )
+          }
+
+          const components: Record<string, unknown> = {}
+          for (const name of componentNames) {
+            components[name] = {
+              type: 'object',
+              description: `${name} component imported from ${base}.`,
+              properties: {
+                component: { const: name },
+                id: { type: 'string' },
+                text: { type: 'string', description: 'Primary text content if applicable.' },
+                label: { type: 'string', description: 'Accessible label or display label.' },
+                value: { type: 'string', description: 'Current value if input-like.' },
+                children: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Array of child component IDs for composition.',
+                },
+                onClick: { $ref: '#/$defs/Action' },
+                onPress: { $ref: '#/$defs/Action' },
+                onChange: { $ref: '#/$defs/Action' },
+              },
+              required: ['component', 'id'],
+              additionalProperties: true,
+            }
+          }
+
+          const newCatalog = {
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            catalogId: `storybook:${base}`,
+            title: `Imported from ${base}`,
+            description:
+              'Catalog auto-generated by scraping a Storybook index. Component names are real; prop schemas are generic placeholders — the AI infers usage from common Fluent/shadcn conventions.',
+            components,
+            $defs: {
+              Action: {
+                type: 'object',
+                description: 'Server-side event triggered by an interaction.',
+                properties: {
+                  event: {
+                    type: 'object',
+                    properties: {
+                      name: { type: 'string' },
+                      context: { type: 'object', additionalProperties: true },
+                    },
+                    required: ['name'],
+                  },
+                },
+                required: ['event'],
+              },
+            },
+          }
+
+          activeCatalog = newCatalog
+          catalogStr = JSON.stringify(activeCatalog)
+
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              catalogId: getCatalogId(activeCatalog),
+              componentCount: componentNames.size,
+              components: Array.from(componentNames).sort(),
+            }),
+          )
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err)
+          console.error('[storybook] error:', message)
+          res.statusCode = 500
+          res.end(JSON.stringify({ error: message }))
+        }
+      }
+
+      server.middlewares.use('/api/route', routeHandler)
+      server.middlewares.use('/api/generate', generateHandler)
+      server.middlewares.use('/api/catalog/get', catalogGetHandler)
+      server.middlewares.use('/api/catalog/set', catalogSetHandler)
+      server.middlewares.use('/api/catalog/from-storybook', catalogFromStorybookHandler)
+    },
+  }
+}
+
+function readJson(req: Connect.IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    let body = ''
+    req.on('data', (chunk) => {
+      body += chunk
+    })
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body))
+      } catch (e) {
+        reject(e)
+      }
+    })
+    req.on('error', reject)
+  })
+}
+
+function extractA2uiJson(raw: string): unknown {
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const body = fence ? fence[1] : raw
+  try {
+    return JSON.parse(body.trim())
+  } catch {
+    // Try to find a top-level object first (multi-surface envelope), then array fallback
+    const objStart = body.indexOf('{')
+    const objEnd = body.lastIndexOf('}')
+    if (objStart !== -1 && objEnd > objStart) {
+      try {
+        return JSON.parse(body.slice(objStart, objEnd + 1))
+      } catch {
+        // fall through to array attempt
+      }
+    }
+    const arrStart = body.indexOf('[')
+    const arrEnd = body.lastIndexOf(']')
+    if (arrStart !== -1 && arrEnd > arrStart) {
+      try {
+        return JSON.parse(body.slice(arrStart, arrEnd + 1))
+      } catch {
+        return null
+      }
+    }
+    return null
+  }
+}
+
+const ROUTER_SYSTEM_PROMPT = `You are an intent router. Given a user's message, decide which surface should answer it.
+
+Surfaces:
+- "chat" — a conversational reply rendered as rich UI inside a phone-shaped chat container. Use for: questions, information, comparisons, recommendations, opinions, calculations, code explanations, dashboards-as-an-answer, anything the user wants delivered as a chat response.
+- "mobile" — a designed mobile app screen rendered inside a phone frame. Use ONLY when the user is explicitly asking to design / mockup / build a mobile app screen, phone UI, or iOS/Android view (e.g. "design an onboarding screen", "build a settings page for an app").
+- "web" — a designed desktop/web app screen rendered inside a browser frame. Use ONLY when the user is explicitly asking to design / mockup / build a web page, dashboard, admin panel, marketing site, or browser-based UI (e.g. "design a sales dashboard", "build a pricing page").
+
+Tiebreak rules:
+- Conversation, comparison, lookup, analysis → "chat".
+- Verbs like "design a screen", "mockup a UI", "build a page", "lay out a view" → "mobile" or "web" based on the platform mentioned. If no platform is mentioned but the verb is design/build/mockup, default to "web".
+- If unsure, choose "chat".
+
+Also write a \`refined_intent\` — a one-sentence well-phrased restatement that will be passed to the chosen surface's generator. Make it specific and actionable.`
+
+function buildSystemPrompt(kind: Kind, catalogStr: string): string {
+  if (kind === 'mobile') return buildScreenDesignPrompt('mobile', catalogStr)
+  if (kind === 'web') return buildScreenDesignPrompt('web', catalogStr)
+  if (kind === 'component') return buildComponentPrompt(catalogStr)
+  return buildChatPrompt(catalogStr)
+}
+
+function buildComponentPrompt(catalogStr: string): string {
+  return `You produce a SINGLE A2UI v0.10 component (or small composition) as JSON.
+
+This component renders directly on the canvas with no surrounding frame — it should be the natural size of the component itself, not a full screen.
+
+# Output format
+
+Respond with a JSON array of two messages, nothing else (no prose, no markdown):
+
+[
+  { "version": "v0.10", "createSurface": { "surfaceId": "turn", "catalogId": "verbos.co:fluent-v9-mini", "theme": { "mode": "light" } } },
+  { "version": "v0.10", "updateComponents": { "surfaceId": "turn", "components": [ /* flat list — exactly one component has id "root" */ ] } }
+]
+
+Rules:
+- Exactly one component has \`id: "root"\`. The root IS the component (e.g. a Card, a BarChart, a StatCard, a Button).
+- Use only catalog components. If the user asks for "a chart of weekly sales", use BarChart or LineChart with realistic data.
+- Targeted edits: if the user message begins with \`[edit target_component=ID]\`, regenerate keeping other components stable and only modify the named id.
+- Iteration: if a "Current surface" block is present in the system prompt, regenerate the FULL component reflecting the user's requested changes.
+
+# Catalog
+
+${catalogStr}
+
+# Style
+
+- Use plausible real data (real names, real metrics, real trends). Avoid Lorem ipsum.
+- For charts, use 4–12 data points that tell a clear story.
+- Keep the component compact and self-contained.
+
+Always emit valid A2UI JSON as the entire response.`
+}
+
+function buildChatPrompt(catalogStr: string): string {
+  return `You are a general-purpose conversational AI that responds with rich, generative UI instead of plain text. You can talk about anything — facts, comparisons, recommendations, planning, calculations, how-to explanations, opinions, code, data, weather, recipes, fitness, finance, travel, learning, and so on.
+
+The client renders each of your turns inside a mobile-shaped chat surface (~360px wide). Use the catalog below to compose the best UI for whatever the user asked.
+
+# Output format — A2UI v0.10
+
+Respond with a JSON array of two messages, and nothing else. No prose, no explanation, no markdown code fences.
+
+[
+  { "version": "v0.10", "createSurface": { "surfaceId": "turn", "catalogId": "verbos.co:fluent-v9-mini", "theme": { "mode": "light" } } },
+  { "version": "v0.10", "updateComponents": { "surfaceId": "turn", "components": [ /* flat list — exactly one component has id "root" */ ] } }
+]
+
+Rules:
+- Components are flat. Each has its own \`id\`. Compose via \`children\` (Column/Row/Card/MetricGrid), \`panelChildId\` (Accordion items), etc.
+- Exactly one component has \`id: "root"\` — it is rendered first.
+- Use only components defined in the catalog.
+- Interactive elements take Action: \`{ "event": { "name": "<snake_case>", "context": { ...literal values... } } }\`.
+- Place literal IDs/values in context. Do not invent data-binding paths.
+
+# Theme
+
+Set \`createSurface.theme.mode\` to \`"dark"\` when the user explicitly asks for dark mode / dark theme / night mode / "make it dark" — otherwise default to \`"light"\`. The renderer switches Fluent's theme and the surface background accordingly.
+
+# Catalog
+
+${catalogStr}
+
+# Choosing components
+
+- Plain explanation → \`Column\` with \`Text\` blocks.
+- Side-by-side comparison → \`Row\` of \`Card\`s or a \`Table\`.
+- Numeric summary → \`MetricGrid\` of \`StatCard\`s.
+- Trend over time → \`LineChart\`. Category comparison → \`BarChart\`.
+- Tabular data → \`Table\`. Quick facts → \`KeyValueList\`.
+- Pickable options → \`Card\`s with \`onClick\`, \`RadioGroup\`, or \`Tag\`s.
+- Status/notice → \`MessageBar\`. Long content → \`Accordion\`.
+
+# Conversation loop
+
+User free-text → respond with the next turn. Action event (e.g. \`[action] name=select_option context={"id":"42"}\`) → treat as the user choosing that option.
+
+Targeted edits: if a user message begins with \`[edit target_component=ID] ...\`, the user is asking to modify just that specific component in your previous surface. Regenerate the full surface keeping everything else identical, but apply the requested change to the named component id.
+
+Each turn replaces the previous surface — design each turn to stand on its own.
+
+# Style
+
+- Lead with the most important thing.
+- Be concise.
+- Use real numbers when asked for data. If you don't have authoritative data, say so in a MessageBar (intent: warning) with a labeled best estimate.
+
+Always emit valid A2UI JSON as the entire response. Never produce more than one turn.`
+}
+
+function buildScreenDesignPrompt(kind: 'mobile' | 'web', catalogStr: string): string {
+  const surface = kind === 'mobile' ? 'mobile app screen' : 'desktop / web app screen'
+  const sizing =
+    kind === 'mobile'
+      ? 'The screen renders inside a phone frame ~380px wide × ~775px tall (9:19.5 aspect ratio). Use a single Column at the root with stacked sections. Prefer vertical layouts, full-width Cards, and full-width Buttons.'
+      : 'The screen renders inside a desktop browser frame ~880px wide × ~500px tall (16:10 laptop aspect ratio). Use Row + Column combinations for sidebars and multi-column areas. Place denser content (MetricGrids, Tables, charts) in the main area and navigation/filters on the side.'
+  const examples =
+    kind === 'mobile'
+      ? `Examples: "onboarding screen", "profile editor", "settings", "checkout step", "feed", "notification preferences".`
+      : `Examples: "analytics dashboard", "team admin panel", "pricing page", "settings", "user directory".`
+
+  return `You are a UI designer that produces one or more ${surface}s as A2UI v0.10 JSON.
+
+You are NOT a chatbot. You generate FINISHED, well-composed screen designs. No greetings, no follow-up questions — just the design.
+
+# Output format — multi-screen envelope
+
+Respond with this JSON shape, and nothing else (no prose, no markdown):
+
+{
+  "surfaces": [
+    {
+      "title": "Short screen name (e.g. 'Home', 'Settings')",
+      "messages": [
+        { "version": "v0.10", "createSurface": { "surfaceId": "turn", "catalogId": "verbos.co:fluent-v9-mini", "theme": { "mode": "light" } } },
+        { "version": "v0.10", "updateComponents": { "surfaceId": "turn", "components": [ /* flat list — exactly one component has id "root" */ ] } }
+      ]
+    }
+  ]
+}
+
+When the user asks for a SINGLE screen, return ONE item in \`surfaces\`. When the user asks for an app/flow/feature that naturally spans multiple screens (e.g. "design a fitness app", "build the signup flow", "create a checkout journey"), return ONE ITEM PER SCREEN — 3 to 8 items. Do NOT design a single screen with buttons that navigate to other screens; design each destination as its own surface so the user can see the full flow side-by-side.
+
+Rules:
+- Each surface is independent and self-contained — all components for that screen are inside its own \`messages\`.
+- Inside each surface, components are flat. Exactly one component has \`id: "root"\`.
+- Use only components in the catalog.
+- For buttons/links/interactive cards: include onPress/onClick with a useful Action name (e.g. \`{ "event": { "name": "go_to_settings", "context": {} } }\`).
+- Iteration: if an earlier assistant message in the conversation already returned surfaces, REGENERATE the full envelope with the requested edits applied. The client will replace previously generated screens.
+- Targeted edits: if the user message begins with \`[edit target_component=ID]\`, regenerate the screens with that specific component modified per the user's instruction; keep other components stable.
+
+# Theme
+
+Set \`createSurface.theme.mode\` to \`"dark"\` when the user explicitly asks for dark mode / dark theme / night mode — otherwise default to \`"light"\`. The renderer switches Fluent's theme and the surface background accordingly.
+
+# Surface
+
+${sizing}
+
+${examples}
+
+# Catalog
+
+${catalogStr}
+
+# Design quality
+
+- Clear visual hierarchy: title3 / subtitle1 / body1 / caption1.
+- Use real, plausible placeholder content (not "Lorem ipsum"). If the user mentions a domain or brand, lean into it.
+- Use Cards to group related content. Use Divider sparingly.
+- For data-heavy designs, use MetricGrid + Table + BarChart/LineChart appropriately.
+- For input-heavy designs, use clearly labeled Input/Textarea/Dropdown/RadioGroup with a primary Button at the end.
+- Use MessageBar for empty states, warnings, or success confirmations.
+
+# Iteration
+
+If a follow-up message arrives with the prior generation in context, REGENERATE the full screen with the requested edits applied. Don't describe the change — emit the updated A2UI JSON.
+
+Always emit valid A2UI JSON as the entire response.`
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  return {
+    plugins: [react(), anthropicProxy(env)],
+  }
+})

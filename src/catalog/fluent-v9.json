@@ -1,0 +1,461 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "catalogId": "verbos.co:fluent-v9-mini",
+  "title": "Verbos Fluent v9 Catalog (Mini)",
+  "description": "Subset of Microsoft Fluent v9 components mapped for A2UI. Components are flat — children reference other components by id.",
+  "components": {
+    "Column": {
+      "type": "object",
+      "description": "Vertical stack container. Use as root or for grouping vertical content.",
+      "properties": {
+        "component": { "const": "Column" },
+        "id": { "type": "string" },
+        "children": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of child component IDs rendered top-to-bottom."
+        },
+        "gap": { "type": "string", "enum": ["xs", "s", "m", "l", "xl"], "default": "m" },
+        "padding": { "type": "string", "enum": ["none", "xs", "s", "m", "l"], "default": "none" },
+        "align": { "type": "string", "enum": ["start", "center", "end", "stretch"], "default": "stretch" }
+      },
+      "required": ["component", "id", "children"]
+    },
+    "Row": {
+      "type": "object",
+      "description": "Horizontal stack container.",
+      "properties": {
+        "component": { "const": "Row" },
+        "id": { "type": "string" },
+        "children": { "type": "array", "items": { "type": "string" } },
+        "gap": { "type": "string", "enum": ["xs", "s", "m", "l", "xl"], "default": "m" },
+        "align": { "type": "string", "enum": ["start", "center", "end", "baseline"], "default": "center" },
+        "justify": { "type": "string", "enum": ["start", "center", "end", "between", "around"], "default": "start" },
+        "wrap": { "type": "boolean", "default": false }
+      },
+      "required": ["component", "id", "children"]
+    },
+    "Card": {
+      "type": "object",
+      "description": "Card surface — use to group related content with a border and elevation.",
+      "properties": {
+        "component": { "const": "Card" },
+        "id": { "type": "string" },
+        "children": { "type": "array", "items": { "type": "string" } },
+        "appearance": { "type": "string", "enum": ["filled", "outline", "subtle"], "default": "outline" },
+        "selected": { "type": "boolean", "default": false },
+        "onClick": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "children"]
+    },
+    "Text": {
+      "type": "object",
+      "description": "Display text. Use variant to pick semantic typography.",
+      "properties": {
+        "component": { "const": "Text" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "variant": {
+          "type": "string",
+          "enum": ["title1", "title2", "title3", "subtitle1", "subtitle2", "body1", "body1Strong", "caption1", "caption2"],
+          "default": "body1"
+        },
+        "color": { "type": "string", "enum": ["neutral", "subtle", "brand", "danger", "success", "warning"], "default": "neutral" },
+        "align": { "type": "string", "enum": ["start", "center", "end"], "default": "start" }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "Image": {
+      "type": "object",
+      "description": "Image. Provide alt text via description.",
+      "properties": {
+        "component": { "const": "Image" },
+        "id": { "type": "string" },
+        "src": { "type": "string" },
+        "description": { "type": "string" },
+        "fit": { "type": "string", "enum": ["cover", "contain", "default"], "default": "default" },
+        "shape": { "type": "string", "enum": ["square", "rounded", "circular"], "default": "rounded" }
+      },
+      "required": ["component", "id", "src"]
+    },
+    "Avatar": {
+      "type": "object",
+      "description": "Person or entity avatar with initials fallback.",
+      "properties": {
+        "component": { "const": "Avatar" },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "image": { "type": "string" },
+        "size": { "type": "number", "enum": [16, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72, 96, 120, 128] },
+        "color": { "type": "string", "enum": ["neutral", "brand", "colorful"], "default": "colorful" }
+      },
+      "required": ["component", "id"]
+    },
+    "Badge": {
+      "type": "object",
+      "description": "Compact label for status or numeric metadata.",
+      "properties": {
+        "component": { "const": "Badge" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "appearance": { "type": "string", "enum": ["filled", "ghost", "outline", "tint"], "default": "filled" },
+        "color": { "type": "string", "enum": ["brand", "danger", "important", "informative", "severe", "subtle", "success", "warning"], "default": "brand" },
+        "shape": { "type": "string", "enum": ["rounded", "circular", "square"], "default": "circular" }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "Tag": {
+      "type": "object",
+      "description": "Tag for selectable categories or filters.",
+      "properties": {
+        "component": { "const": "Tag" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "selected": { "type": "boolean", "default": false },
+        "onClick": { "$ref": "#/$defs/Action" },
+        "dismissible": { "type": "boolean", "default": false }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "Divider": {
+      "type": "object",
+      "description": "Horizontal divider for visual separation.",
+      "properties": {
+        "component": { "const": "Divider" },
+        "id": { "type": "string" },
+        "appearance": { "type": "string", "enum": ["default", "subtle", "strong"], "default": "default" }
+      },
+      "required": ["component", "id"]
+    },
+    "Button": {
+      "type": "object",
+      "description": "Action button. onPress fires an event sent back to the agent.",
+      "properties": {
+        "component": { "const": "Button" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "appearance": { "type": "string", "enum": ["primary", "secondary", "outline", "subtle", "transparent"], "default": "secondary" },
+        "size": { "type": "string", "enum": ["small", "medium", "large"], "default": "medium" },
+        "disabled": { "type": "boolean", "default": false },
+        "icon": { "type": "string", "description": "Optional Fluent icon name (e.g. 'Send', 'Add', 'Checkmark')." },
+        "onPress": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "Input": {
+      "type": "object",
+      "description": "Single-line text input.",
+      "properties": {
+        "component": { "const": "Input" },
+        "id": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "value": { "type": "string" },
+        "label": { "type": "string" },
+        "hint": { "type": "string" },
+        "type": { "type": "string", "enum": ["text", "email", "tel", "url", "password", "number"], "default": "text" },
+        "disabled": { "type": "boolean", "default": false },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id"]
+    },
+    "Textarea": {
+      "type": "object",
+      "description": "Multi-line text input.",
+      "properties": {
+        "component": { "const": "Textarea" },
+        "id": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "value": { "type": "string" },
+        "label": { "type": "string" },
+        "rows": { "type": "number", "default": 3 },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id"]
+    },
+    "Checkbox": {
+      "type": "object",
+      "description": "Binary checkbox.",
+      "properties": {
+        "component": { "const": "Checkbox" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "checked": { "type": "boolean", "default": false },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "label"]
+    },
+    "RadioGroup": {
+      "type": "object",
+      "description": "Group of mutually exclusive options.",
+      "properties": {
+        "component": { "const": "RadioGroup" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "value": { "type": "string" },
+        "layout": { "type": "string", "enum": ["vertical", "horizontal"], "default": "vertical" },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "label": { "type": "string" },
+              "hint": { "type": "string" }
+            },
+            "required": ["value", "label"]
+          }
+        },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "options"]
+    },
+    "Switch": {
+      "type": "object",
+      "description": "On/off toggle.",
+      "properties": {
+        "component": { "const": "Switch" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "checked": { "type": "boolean", "default": false },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "label"]
+    },
+    "Dropdown": {
+      "type": "object",
+      "description": "Single-select dropdown / combobox.",
+      "properties": {
+        "component": { "const": "Dropdown" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "placeholder": { "type": "string" },
+        "value": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["value", "label"]
+          }
+        },
+        "onChange": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "options"]
+    },
+    "MessageBar": {
+      "type": "object",
+      "description": "Inline notification for status, warnings, errors, or confirmations.",
+      "properties": {
+        "component": { "const": "MessageBar" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "title": { "type": "string" },
+        "intent": { "type": "string", "enum": ["info", "warning", "error", "success"], "default": "info" }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "Spinner": {
+      "type": "object",
+      "description": "Loading spinner.",
+      "properties": {
+        "component": { "const": "Spinner" },
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "size": { "type": "string", "enum": ["tiny", "extra-small", "small", "medium", "large"], "default": "medium" }
+      },
+      "required": ["component", "id"]
+    },
+    "ProgressBar": {
+      "type": "object",
+      "description": "Determinate or indeterminate progress.",
+      "properties": {
+        "component": { "const": "ProgressBar" },
+        "id": { "type": "string" },
+        "value": { "type": "number", "minimum": 0, "maximum": 1 },
+        "label": { "type": "string" },
+        "thickness": { "type": "string", "enum": ["medium", "large"], "default": "medium" }
+      },
+      "required": ["component", "id"]
+    },
+    "Accordion": {
+      "type": "object",
+      "description": "Collapsible sections.",
+      "properties": {
+        "component": { "const": "Accordion" },
+        "id": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "header": { "type": "string" },
+              "panelChildId": { "type": "string", "description": "ID of a component to render as the panel body." }
+            },
+            "required": ["value", "header"]
+          }
+        },
+        "collapsible": { "type": "boolean", "default": true },
+        "multiple": { "type": "boolean", "default": false },
+        "defaultOpenValues": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["component", "id", "items"]
+    },
+    "Link": {
+      "type": "object",
+      "description": "Inline hyperlink. If onPress is set it fires an event instead of navigating.",
+      "properties": {
+        "component": { "const": "Link" },
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "href": { "type": "string" },
+        "onPress": { "$ref": "#/$defs/Action" }
+      },
+      "required": ["component", "id", "text"]
+    },
+    "StatCard": {
+      "type": "object",
+      "description": "A single KPI/metric card: big value + label, optional sub-label and trend.",
+      "properties": {
+        "component": { "const": "StatCard" },
+        "id": { "type": "string" },
+        "label": { "type": "string", "description": "Short metric name, e.g. 'Daily active users'." },
+        "value": { "type": "string", "description": "The headline value, pre-formatted (e.g. '1.2M', '$430', '78%')." },
+        "sublabel": { "type": "string", "description": "Optional smaller context line below the value." },
+        "trend": { "type": "string", "enum": ["up", "down", "flat"], "description": "Optional trend direction." },
+        "trendValue": { "type": "string", "description": "Optional trend amount, e.g. '+4.2%' or '-12 vs last week'." },
+        "intent": { "type": "string", "enum": ["neutral", "success", "warning", "danger", "brand"], "default": "neutral" }
+      },
+      "required": ["component", "id", "label", "value"]
+    },
+    "MetricGrid": {
+      "type": "object",
+      "description": "Grid of StatCards. Use for dashboards or quick-glance summaries.",
+      "properties": {
+        "component": { "const": "MetricGrid" },
+        "id": { "type": "string" },
+        "children": { "type": "array", "items": { "type": "string" }, "description": "IDs of StatCard components." },
+        "columns": { "type": "number", "minimum": 1, "maximum": 4, "default": 2 }
+      },
+      "required": ["component", "id", "children"]
+    },
+    "BarChart": {
+      "type": "object",
+      "description": "Simple categorical bar chart. Use for comparing 2–10 categories.",
+      "properties": {
+        "component": { "const": "BarChart" },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "number" },
+              "color": { "type": "string", "description": "Optional CSS color." }
+            },
+            "required": ["label", "value"]
+          }
+        },
+        "orientation": { "type": "string", "enum": ["vertical", "horizontal"], "default": "vertical" },
+        "valuePrefix": { "type": "string" },
+        "valueSuffix": { "type": "string" }
+      },
+      "required": ["component", "id", "data"]
+    },
+    "LineChart": {
+      "type": "object",
+      "description": "Simple sparkline/line chart for time-series or sequential values.",
+      "properties": {
+        "component": { "const": "LineChart" },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "data": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "number" }
+            },
+            "required": ["label", "value"]
+          }
+        },
+        "color": { "type": "string", "description": "Optional CSS color for the line." },
+        "valuePrefix": { "type": "string" },
+        "valueSuffix": { "type": "string" }
+      },
+      "required": ["component", "id", "data"]
+    },
+    "Table": {
+      "type": "object",
+      "description": "Tabular data with column headers.",
+      "properties": {
+        "component": { "const": "Table" },
+        "id": { "type": "string" },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string" },
+              "header": { "type": "string" },
+              "align": { "type": "string", "enum": ["start", "center", "end"], "default": "start" }
+            },
+            "required": ["key", "header"]
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": true }
+        }
+      },
+      "required": ["component", "id", "columns", "rows"]
+    },
+    "KeyValueList": {
+      "type": "object",
+      "description": "Simple list of label/value pairs. Use for short factual summaries.",
+      "properties": {
+        "component": { "const": "KeyValueList" },
+        "id": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": { "type": "string" },
+              "value": { "type": "string" }
+            },
+            "required": ["label", "value"]
+          }
+        }
+      },
+      "required": ["component", "id", "items"]
+    }
+  },
+  "$defs": {
+    "Action": {
+      "type": "object",
+      "description": "Interaction handler. Fires a server-side event the agent will react to in the next turn.",
+      "properties": {
+        "event": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Action name, e.g. 'select_perk' or 'submit'." },
+            "context": {
+              "type": "object",
+              "description": "Key-value context delivered with the event.",
+              "additionalProperties": true
+            }
+          },
+          "required": ["name"]
+        }
+      },
+      "required": ["event"]
+    }
+  }
+}
