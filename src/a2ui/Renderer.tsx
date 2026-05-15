@@ -259,16 +259,27 @@ function Node({
     case 'Image': {
       const shape = (c.shape as string) ?? 'rounded'
       const radius = shape === 'circular' ? 999 : shape === 'rounded' ? 8 : 0
+      const desc = (c.description as string) ?? ''
       return (
-        <img
-          src={c.src as string}
-          alt={(c.description as string) ?? ''}
-          style={{
-            maxWidth: '100%',
-            borderRadius: radius,
-            objectFit: ((c.fit as string) ?? 'default') === 'default' ? undefined : (c.fit as 'cover' | 'contain'),
-          }}
-        />
+        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+          <img
+            src={c.src as string}
+            alt={desc}
+            style={{
+              maxWidth: '100%',
+              borderRadius: radius,
+              objectFit: ((c.fit as string) ?? 'default') === 'default' ? undefined : (c.fit as 'cover' | 'contain'),
+            }}
+          />
+          {onEditText && desc ? (
+            <Text size={100} style={{ color: '#a3a3a3' }} block>
+              <EditableText
+                value={desc}
+                onChange={(v) => onEditText(c.id, v, 'description')}
+              />
+            </Text>
+          ) : null}
+        </div>
       )
     }
 
@@ -383,7 +394,10 @@ function Node({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {c.label ? (
             <Text size={200} weight="semibold" block>
-              {c.label as string}
+              <EditableText
+                value={c.label as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
+              />
             </Text>
           ) : null}
           <RadioGroup
@@ -397,8 +411,30 @@ function Node({
               })
             }
           >
-            {options.map((o) => (
-              <Radio key={o.value} value={o.value} label={o.hint ? `${o.label} — ${o.hint}` : o.label} />
+            {options.map((o, i) => (
+              <Radio
+                key={o.value}
+                value={o.value}
+                label={
+                  onEditText ? (
+                    <span>
+                      <EditableText
+                        value={o.label}
+                        onChange={(v) => onEditText(c.id, v, `options.${i}.label`)}
+                      />
+                      {o.hint ? (
+                        <>
+                          {' — '}
+                          <EditableText
+                            value={o.hint}
+                            onChange={(v) => onEditText(c.id, v, `options.${i}.hint`)}
+                          />
+                        </>
+                      ) : null}
+                    </span>
+                  ) : o.hint ? `${o.label} — ${o.hint}` : o.label
+                }
+              />
             ))}
           </RadioGroup>
         </div>
@@ -412,7 +448,10 @@ function Node({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {c.label ? (
             <Text size={200} weight="semibold" block>
-              {c.label as string}
+              <EditableText
+                value={c.label as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
+              />
             </Text>
           ) : null}
           <Combobox
@@ -426,9 +465,16 @@ function Node({
               })
             }
           >
-            {options.map((o) => (
-              <Option key={o.value} value={o.value}>
-                {o.label}
+            {options.map((o, i) => (
+              <Option key={o.value} value={o.value} text={o.label}>
+                {onEditText ? (
+                  <EditableText
+                    value={o.label}
+                    onChange={(v) => onEditText(c.id, v, `options.${i}.label`)}
+                  />
+                ) : (
+                  o.label
+                )}
               </Option>
             ))}
           </Combobox>
@@ -459,10 +505,19 @@ function Node({
 
     case 'Spinner':
       return (
-        <Spinner
-          size={(c.size as 'tiny' | 'extra-small' | 'small' | 'medium' | 'large') ?? 'medium'}
-          label={c.label as string | undefined}
-        />
+        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <Spinner
+            size={(c.size as 'tiny' | 'extra-small' | 'small' | 'medium' | 'large') ?? 'medium'}
+          />
+          {c.label ? (
+            <Text size={200} style={{ color: '#525252' }} block>
+              <EditableText
+                value={c.label as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
+              />
+            </Text>
+          ) : null}
+        </div>
       )
 
     case 'ProgressBar':
@@ -470,7 +525,10 @@ function Node({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {c.label ? (
             <Text size={200} block>
-              {c.label as string}
+              <EditableText
+                value={c.label as string}
+                onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
+              />
             </Text>
           ) : null}
           <ProgressBar
@@ -488,9 +546,14 @@ function Node({
           multiple={(c.multiple as boolean) ?? false}
           defaultOpenItems={c.defaultOpenValues as string[] | undefined}
         >
-          {items.map((it) => (
+          {items.map((it, i) => (
             <AccordionItem key={it.value} value={it.value}>
-              <AccordionHeader>{it.header}</AccordionHeader>
+              <AccordionHeader>
+                <EditableText
+                  value={it.header}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `items.${i}.header`) : undefined}
+                />
+              </AccordionHeader>
               <AccordionPanel>
                 {it.panelChildId ? (
                   <Node id={it.panelChildId} map={map} onAction={onAction} selectedComponentId={selectedComponentId} onEditText={onEditText} />
@@ -562,7 +625,7 @@ function Node({
               onChange={onEditText ? (v) => onEditText(c.id, v, 'label') : undefined}
             />
           </Text>
-          <Text size={700} weight="semibold" as="div" style={{ color: '#171717', lineHeight: 1.1 }} block>
+          <Text size={700} weight="semibold" as="p" style={{ color: '#171717', lineHeight: 1.1, margin: 0 }} block>
             <EditableText
               value={c.value as string}
               onChange={onEditText ? (v) => onEditText(c.id, v, 'value') : undefined}
@@ -607,13 +670,13 @@ function Node({
     }
 
     case 'BarChart':
-      return <BarChartView c={c} />
+      return <BarChartView c={c} onEditText={onEditText} />
 
     case 'LineChart':
-      return <LineChartView c={c} />
+      return <LineChartView c={c} onEditText={onEditText} />
 
     case 'Table':
-      return <TableView c={c} />
+      return <TableView c={c} onEditText={onEditText} />
 
     case 'KeyValueList': {
       const items = (c.items as Array<{ label: string; value: string }>) ?? []
@@ -638,10 +701,16 @@ function Node({
               }}
             >
               <Text size={200} style={{ color: '#737373' }}>
-                {it.label}
+                <EditableText
+                  value={it.label}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `items.${i}.label`) : undefined}
+                />
               </Text>
               <Text size={300} weight="semibold" style={{ color: '#171717', textAlign: 'right' }}>
-                {it.value}
+                <EditableText
+                  value={it.value}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `items.${i}.value`) : undefined}
+                />
               </Text>
             </div>
           ))}
@@ -831,7 +900,13 @@ function textVariant(
   }
 }
 
-function BarChartView({ c }: { c: A2uiComponent }) {
+function BarChartView({
+  c,
+  onEditText,
+}: {
+  c: A2uiComponent
+  onEditText?: (componentId: string, newText: string, field?: string) => void
+}) {
   const data = (c.data as Array<{ label: string; value: number; color?: string }>) ?? []
   const orientation = (c.orientation as string) ?? 'vertical'
   const prefix = (c.valuePrefix as string) ?? ''
@@ -843,14 +918,22 @@ function BarChartView({ c }: { c: A2uiComponent }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {c.title ? (
         <Text size={300} weight="semibold" block>
-          {c.title as string}
+          <EditableText
+            value={c.title as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v, 'title') : undefined}
+          />
         </Text>
       ) : null}
       {orientation === 'horizontal' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.map((d, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 90, fontSize: 12, color: '#525252' }}>{d.label}</div>
+              <div style={{ width: 90, fontSize: 12, color: '#525252' }}>
+                <EditableText
+                  value={d.label}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `data.${i}.label`) : undefined}
+                />
+              </div>
               <div style={{ flex: 1, background: '#f5f5f5', borderRadius: 6, height: 16, position: 'relative', overflow: 'hidden' }}>
                 <div
                   style={{
@@ -892,7 +975,12 @@ function BarChartView({ c }: { c: A2uiComponent }) {
                   title={`${d.label}: ${prefix}${d.value}${suffix}`}
                 />
               </div>
-              <div style={{ fontSize: 10, color: '#525252', textAlign: 'center', lineHeight: 1.2 }}>{d.label}</div>
+              <div style={{ fontSize: 10, color: '#525252', textAlign: 'center', lineHeight: 1.2 }}>
+                <EditableText
+                  value={d.label}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `data.${i}.label`) : undefined}
+                />
+              </div>
               <div style={{ fontSize: 11, color: '#171717', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                 {prefix}{d.value}{suffix}
               </div>
@@ -904,7 +992,13 @@ function BarChartView({ c }: { c: A2uiComponent }) {
   )
 }
 
-function LineChartView({ c }: { c: A2uiComponent }) {
+function LineChartView({
+  c,
+  onEditText,
+}: {
+  c: A2uiComponent
+  onEditText?: (componentId: string, newText: string, field?: string) => void
+}) {
   const data = (c.data as Array<{ label: string; value: number }>) ?? []
   const color = (c.color as string) ?? '#0f6cbd'
   const prefix = (c.valuePrefix as string) ?? ''
@@ -933,12 +1027,16 @@ function LineChartView({ c }: { c: A2uiComponent }) {
   })
   const path = points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
   const area = `${path} L ${points[points.length - 1].x} ${padY + innerH} L ${points[0].x} ${padY + innerH} Z`
+  const lastIdx = data.length - 1
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {c.title ? (
         <Text size={300} weight="semibold" block>
-          {c.title as string}
+          <EditableText
+            value={c.title as string}
+            onChange={onEditText ? (v) => onEditText(c.id, v, 'title') : undefined}
+          />
         </Text>
       ) : null}
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto' }} role="img">
@@ -955,14 +1053,30 @@ function LineChartView({ c }: { c: A2uiComponent }) {
         ))}
       </svg>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#737373' }}>
-        <span>{data[0].label}</span>
-        <span>{data[data.length - 1].label}</span>
+        <span>
+          <EditableText
+            value={data[0].label}
+            onChange={onEditText ? (v) => onEditText(c.id, v, `data.0.label`) : undefined}
+          />
+        </span>
+        <span>
+          <EditableText
+            value={data[lastIdx].label}
+            onChange={onEditText ? (v) => onEditText(c.id, v, `data.${lastIdx}.label`) : undefined}
+          />
+        </span>
       </div>
     </div>
   )
 }
 
-function TableView({ c }: { c: A2uiComponent }) {
+function TableView({
+  c,
+  onEditText,
+}: {
+  c: A2uiComponent
+  onEditText?: (componentId: string, newText: string, field?: string) => void
+}) {
   const columns = (c.columns as Array<{ key: string; header: string; align?: 'start' | 'center' | 'end' }>) ?? []
   const rows = (c.rows as Array<Record<string, unknown>>) ?? []
   return (
@@ -983,7 +1097,7 @@ function TableView({ c }: { c: A2uiComponent }) {
       >
         <thead style={{ background: '#fafafa' }}>
           <tr>
-            {columns.map((col) => (
+            {columns.map((col, ci) => (
               <th
                 key={col.key}
                 style={{
@@ -997,7 +1111,10 @@ function TableView({ c }: { c: A2uiComponent }) {
                   borderBottom: '1px solid #e5e5e5',
                 }}
               >
-                {col.header}
+                <EditableText
+                  value={col.header}
+                  onChange={onEditText ? (v) => onEditText(c.id, v, `columns.${ci}.header`) : undefined}
+                />
               </th>
             ))}
           </tr>
@@ -1007,6 +1124,8 @@ function TableView({ c }: { c: A2uiComponent }) {
             <tr key={i}>
               {columns.map((col) => {
                 const v = row[col.key]
+                const isPrimitive =
+                  v === null || v === undefined || typeof v !== 'object'
                 const display =
                   v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
                 return (
@@ -1019,7 +1138,14 @@ function TableView({ c }: { c: A2uiComponent }) {
                       fontVariantNumeric: 'tabular-nums',
                     }}
                   >
-                    {display}
+                    {onEditText && isPrimitive ? (
+                      <EditableText
+                        value={display}
+                        onChange={(nv) => onEditText(c.id, nv, `rows.${i}.${col.key}`)}
+                      />
+                    ) : (
+                      display
+                    )}
                   </td>
                 )
               })}

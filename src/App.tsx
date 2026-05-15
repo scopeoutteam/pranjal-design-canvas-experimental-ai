@@ -232,6 +232,30 @@ export default function App() {
   const editComponentText = useCallback(
     (componentId: string, newText: string, field: string = 'text') => {
       if (!activeNodeId) return
+      // Immutable update at a dotted path (e.g. "title", "columns.0.header",
+      // "rows.1.name"). Supports object and array steps.
+      const setPath = (obj: unknown, path: string, value: unknown): unknown => {
+        const keys = path.split('.')
+        const head = keys[0]
+        const rest = keys.slice(1).join('.')
+        const isNumericHead = /^\d+$/.test(head)
+        if (rest === '') {
+          if (Array.isArray(obj)) {
+            const copy = obj.slice()
+            copy[isNumericHead ? Number(head) : (head as never)] = value as never
+            return copy
+          }
+          return { ...(obj as Record<string, unknown>), [head]: value }
+        }
+        if (Array.isArray(obj)) {
+          const idx = Number(head)
+          const copy = obj.slice()
+          copy[idx] = setPath(obj[idx] ?? {}, rest, value)
+          return copy
+        }
+        const o = (obj as Record<string, unknown>) ?? {}
+        return { ...o, [head]: setPath(o[head] ?? {}, rest, value) }
+      }
       const rewrite = (msgs: A2uiMessage[] | null | undefined): A2uiMessage[] | null => {
         if (!msgs) return msgs ?? null
         return msgs.map((m) => {
@@ -241,7 +265,9 @@ export default function App() {
               updateComponents: {
                 ...m.updateComponents,
                 components: m.updateComponents.components.map((c) =>
-                  c.id === componentId ? { ...c, [field]: newText } : c,
+                  c.id === componentId
+                    ? (setPath(c, field, newText) as typeof c)
+                    : c,
                 ) as never,
               },
             } as A2uiMessage
