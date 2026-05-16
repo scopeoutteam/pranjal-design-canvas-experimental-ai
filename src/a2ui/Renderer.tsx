@@ -273,6 +273,33 @@ function Node({
       )
     }
 
+    // A2UI primitive — when no design system is connected the LLM emits Heading
+    // with a numeric level. Map levels 1-4 to Fluent's title/subtitle variants.
+    case 'Heading': {
+      const level = Math.max(1, Math.min(4, Number(c.level ?? 2)))
+      const variant = level === 1 ? 'title1' : level === 2 ? 'title2' : level === 3 ? 'title3' : 'subtitle1'
+      const text = (c.text as string) ?? ''
+      const align = (c.align as string) ?? 'start'
+      const color = colorToken((c.color as string) ?? 'neutral')
+      const { size, weight } = textVariant(variant)
+      const as = (`h${level}` as 'h1' | 'h2' | 'h3' | 'h4')
+      return (
+        <Text
+          size={size}
+          weight={weight}
+          as={as}
+          align={align as 'start' | 'center' | 'end' | 'justify'}
+          style={{ color, overflowWrap: 'anywhere', wordBreak: 'break-word', maxWidth: '100%' }}
+          block
+        >
+          <EditableText
+            value={text}
+            onChange={onEditText ? (v) => onEditText(c.id as string, v) : undefined}
+          />
+        </Text>
+      )
+    }
+
     case 'Image': {
       const shape = (c.shape as string) ?? 'rounded'
       const radius = shape === 'circular' ? 999 : shape === 'rounded' ? 8 : 0

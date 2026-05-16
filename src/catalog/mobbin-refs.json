@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "source": "Mobbin MCP search_screens (curated, fetched 2026-05-16)",
+  "description": "Reference pool used by Scout AI when no design system is connected. Each entry includes a category tag and short design notes the LLM uses as inspiration cues.",
+  "screens": [
+    {
+      "id": "7564d9a8-2913-47e4-9322-93eea024174a",
+      "app_name": "Alan",
+      "platform": "ios",
+      "category": "mobile_onboarding",
+      "mobbin_url": "https://mobbin.com/screens/7564d9a8-2913-47e4-9322-93eea024174a",
+      "image_url": "https://mobbin.com/api/mcp/short/hUESC7bl",
+      "design_notes": "Deep teal background, illustrated hero (sun + clouds), large 'Welcome John' heading, soft subtext, full-width violet 'Start' button pinned to bottom. Calm wellness-app vibe."
+    },
+    {
+      "id": "3eb0162b-13f1-4f14-9a8b-352b1a14433a",
+      "app_name": "Liven",
+      "platform": "ios",
+      "category": "mobile_onboarding",
+      "mobbin_url": "https://mobbin.com/screens/3eb0162b-13f1-4f14-9a8b-352b1a14433a",
+      "image_url": "https://mobbin.com/api/mcp/short/Q9d7rwkY",
+      "design_notes": "Sunset gradient illustration, bold serif 'Welcome to Liven' heading, single-line tagline, green pill 'Start now' button at bottom. Generous vertical white space, mood-driven hero."
+    },
+    {
+      "id": "dbc75bb6-fb23-40a2-b61d-fd9aa38e895a",
+      "app_name": "Forest",
+      "platform": "ios",
+      "category": "mobile_dashboard",
+      "mobbin_url": "https://mobbin.com/screens/dbc75bb6-fb23-40a2-b61d-fd9aa38e895a",
+      "image_url": "https://mobbin.com/api/mcp/short/Inb4pgFW",
+      "design_notes": "Stacked grey Cards each holding one chart (horizontal progress bars + donut). Section titles in muted grey. Top banner with green tip. Donut uses 4-color soft palette."
+    },
+    {
+      "id": "e5dcd7a4-253e-4b0f-a487-7809db572ee8",
+      "app_name": "Tonal",
+      "platform": "ios",
+      "category": "mobile_dashboard",
+      "mobbin_url": "https://mobbin.com/screens/e5dcd7a4-253e-4b0f-a487-7809db572ee8",
+      "image_url": "https://mobbin.com/api/mcp/short/JwMdwdO4",
+      "design_notes": "Huge bold metric '6,613 LBS' at top with caption beneath. Tabbed sub-nav (Week/Month/Year). Bar chart with one bright green highlighted bar + 'BEST DAY' callout. Bold sans serif typography throughout."
+    },
+    {
+      "id": "9c31207b-7d91-4061-b9b8-f607c931dbd2",
+      "app_name": "Clubhouse",
+      "platform": "ios",
+      "category": "mobile_settings",
+      "mobbin_url": "https://mobbin.com/screens/9c31207b-7d91-4061-b9b8-f607c931dbd2",
+      "image_url": "https://mobbin.com/api/mcp/short/sz9IqFHH",
+      "design_notes": "Grouped rounded grey cards, each a settings section. Label-value rows with right-aligned values. Toggle switches on the right. Destructive actions in red. Lowercase section title 'account'."
+    },
+    {
+      "id": "0a98a664-0927-40b1-961f-da416cc4228d",
+      "app_name": "Bluesky Social",
+      "platform": "ios",
+      "category": "mobile_settings",
+      "mobbin_url": "https://mobbin.com/screens/0a98a664-0927-40b1-961f-da416cc4228d",
+      "image_url": "https://mobbin.com/api/mcp/short/hD52usDo",
+      "design_notes": "Centered Avatar + handle hero at top, then full-width settings rows with leading icon, label, and chevron. Account switcher expanded. Clean iOS-native feel with bottom tab bar."
+    },
+    {
+      "id": "5ad80c98-cebe-4bcf-ab7a-4f2121497d54",
+      "app_name": "Glassdoor",
+      "platform": "ios",
+      "category": "mobile_social",
+      "mobbin_url": "https://mobbin.com/screens/5ad80c98-cebe-4bcf-ab7a-4f2121497d54",
+      "image_url": "https://mobbin.com/api/mcp/short/YSwICJhy",
+      "design_notes": "Section header card with two Avatar+name+Follow Cards in a Row. Below it: a post with green author chip, body text, reaction Row (like/comments/share + emoji count). Reply preview Card nested below."
+    },
+    {
+      "id": "f4f3965a-1f86-40b0-85a2-f3569bf1df43",
+      "app_name": "Weverse",
+      "platform": "ios",
+      "category": "mobile_social",
+      "mobbin_url": "https://mobbin.com/screens/f4f3965a-1f86-40b0-85a2-f3569bf1df43",
+      "image_url": "https://mobbin.com/api/mcp/short/idA8jL2R",
+      "design_notes": "Tab bar (Posts/Comments/Party) under header. Each post is its own large Card: handle row, timestamp, body text (long-form), heart + comment counts at bottom + save icon. Lots of breathing room."
+    },
+    {
+      "id": "04c3017d-4662-4280-b86a-bf5c337bbede",
+      "app_name": "SHEIN",
+      "platform": "ios",
+      "category": "mobile_ecommerce",
+      "mobbin_url": "https://mobbin.com/screens/04c3017d-4662-4280-b86a-bf5c337bbede",
+      "image_url": "https://mobbin.com/api/mcp/short/OEyYkYqb",
+      "design_notes": "Full-bleed product image hero. Discount Badge overlaid. Price with strikethrough original price. Two horizontal promo Tags below. Bold black CTA bar with white text 'Add to Cart' + percent off."
+    },
+    {
+      "id": "b9caf1a3-fa9a-43d1-935a-7bb273cb2b5c",
+      "app_name": "Temu",
+      "platform": "ios",
+      "category": "mobile_ecommerce",
+      "mobbin_url": "https://mobbin.com/screens/b9caf1a3-fa9a-43d1-935a-7bb273cb2b5c",
+      "image_url": "https://mobbin.com/api/mcp/short/lQiyYLqo",
+      "design_notes": "Brand Card with avatar + 'Star store' badge + follower stats. KeyValueList for product attributes. Floating green cart Badge with count. Orange pill CTA 'Go to cart' with minus/plus quantity stepper to its left."
+    },
+    {
+      "id": "f845a098-8dbc-456d-b1b3-11ff88b5dd22",
+      "app_name": "Character AI",
+      "platform": "ios",
+      "category": "mobile_chat",
+      "mobbin_url": "https://mobbin.com/screens/f845a098-8dbc-456d-b1b3-11ff88b5dd22",
+      "image_url": "https://mobbin.com/api/mcp/short/LM3iuLzG",
+      "design_notes": "Dark theme with rounded message Cards (grey + dark blue) each containing a tag (timestamp + 'current' badge), body text, and a small thumbnail Image floated right. Top toast 'Chat renamed' with checkmark."
+    },
+    {
+      "id": "646e1bb0-5f66-4364-91d9-e15070d5fd2f",
+      "app_name": "Raycast",
+      "platform": "ios",
+      "category": "mobile_chat",
+      "mobbin_url": "https://mobbin.com/screens/646e1bb0-5f66-4364-91d9-e15070d5fd2f",
+      "image_url": "https://mobbin.com/api/mcp/short/GYVquRmu",
+      "design_notes": "Pure black background, single user message bubble (rounded grey), back chevron + title 'UI versus UX differences explai...' with subtitle 'Auto'. Pill-shaped input docked at bottom with attachment + record buttons."
+    },
+    {
+      "id": "846b6287-e85d-4e94-8c5a-c975cab32276",
+      "app_name": "Pinterest",
+      "platform": "ios",
+      "category": "mobile_search",
+      "mobbin_url": "https://mobbin.com/screens/846b6287-e85d-4e94-8c5a-c975cab32276",
+      "image_url": "https://mobbin.com/api/mcp/short/nH3ORUSQ",
+      "design_notes": "Pill search bar with mic + filter icons. Horizontal scroll of category Tags with mini thumbnail + label. Below: 'Explore featured boards' heading + 2-col grid of Cards (image collage + title + caption). Bottom tab bar with 5 icons."
+    },
+    {
+      "id": "b685d6dd-a7cb-4880-94cf-8bc4f17e7e49",
+      "app_name": "TheFork",
+      "platform": "ios",
+      "category": "mobile_search",
+      "mobbin_url": "https://mobbin.com/screens/b685d6dd-a7cb-4880-94cf-8bc4f17e7e49",
+      "image_url": "https://mobbin.com/api/mcp/short/sTa9itjy",
+      "design_notes": "Top filter chips Row (date / time / guests). Second filter Row with count badge. Centered empty-state message with binoculars icon. Section 'Best rated restaurants' + horizontal scroll of large image Cards with 'New' badge, name, location, price, discount Tag."
+    },
+    {
+      "id": "fb90afc6-53ef-4872-9c73-34e1cd75b0d0",
+      "app_name": "Grok",
+      "platform": "ios",
+      "category": "mobile_auth",
+      "mobbin_url": "https://mobbin.com/screens/fb90afc6-53ef-4872-9c73-34e1cd75b0d0",
+      "image_url": "https://mobbin.com/api/mcp/short/kACCsiv5",
+      "design_notes": "Full-bleed dark galaxy/space background. Top-right Skip Button. Huge centered word-mark + thin subtitle. Three stacked dark glass Buttons (Google/X/Apple) with provider icons. Legal text below in tiny grey."
+    },
+    {
+      "id": "21588057-92ca-461f-b8fa-2a3c5f2fef0d",
+      "app_name": "Mercari",
+      "platform": "ios",
+      "category": "mobile_auth",
+      "mobbin_url": "https://mobbin.com/screens/21588057-92ca-461f-b8fa-2a3c5f2fef0d",
+      "image_url": "https://mobbin.com/api/mcp/short/gKidJasY",
+      "design_notes": "Lots of white space, centered brand logo with mark, short welcome line, then primary red Button + secondary outlined red Button stacked. Minimalist."
+    },
+    {
+      "id": "3e444b9b-2142-41ee-ae95-744b1dc1487c",
+      "app_name": "foodpanda",
+      "platform": "ios",
+      "category": "mobile_finance",
+      "mobbin_url": "https://mobbin.com/screens/3e444b9b-2142-41ee-ae95-744b1dc1487c",
+      "image_url": "https://mobbin.com/api/mcp/short/3h3mFftt",
+      "design_notes": "Magenta header with brand mark + close + settings icons. Floating white Card showing 'Available credit S$ 5.00' + Top up link. Second Card for gift card balance. Payment method Card with Visa logo + primary badge. 'Recent activities' KeyValueList of debits/credits."
+    },
+    {
+      "id": "f5c82067-1d39-4c3b-a0cd-c90b86969d91",
+      "app_name": "Satispay",
+      "platform": "ios",
+      "category": "mobile_finance",
+      "mobbin_url": "https://mobbin.com/screens/f5c82067-1d39-4c3b-a0cd-c90b86969d91",
+      "image_url": "https://mobbin.com/api/mcp/short/G07rb6t3",
+      "design_notes": "Total balance hero with currency symbol and 'Expired' Tag in orange. Segmented tabs (Services/Transactions/Requests). Transaction Rows each with colored circle icon, masked merchant, amount + date with green checkmarks."
+    },
+    {
+      "id": "bd9fc749-87e6-4894-9961-b7d013cdca91",
+      "app_name": "Alan",
+      "platform": "ios",
+      "category": "mobile_fitness",
+      "mobbin_url": "https://mobbin.com/screens/bd9fc749-87e6-4894-9961-b7d013cdca91",
+      "image_url": "https://mobbin.com/api/mcp/short/zsjX4ggR",
+      "design_notes": "Peach gradient header with reward Badge. Horizontal tabs (Activity/Insurance/Help/Settings). Achievement banner with crown emoji. Pill filter Tags. Stepped chart card. Records 2x2 grid of small StatCards (emoji + value + label)."
+    },
+    {
+      "id": "4e2df17b-d095-46a1-8c41-c9394ab83f24",
+      "app_name": "Tonal",
+      "platform": "ios",
+      "category": "mobile_fitness",
+      "mobbin_url": "https://mobbin.com/screens/4e2df17b-d095-46a1-8c41-c9394ab83f24",
+      "image_url": "https://mobbin.com/api/mcp/short/zSkscIrF",
+      "design_notes": "Big circular progress ring with '58' centered + 'Power Reps' label and checkmark. White CardBody with weekly target range + 'VIEW PROGRESS' outline Button. Lower Card with 'CHALLENGE' header + week streak dot-grid. Black floating action Button (play). Bottom tab bar."
+    },
+    {
+      "id": "e7f2ccad-19e6-422a-aecc-a2f2b5608d87",
+      "app_name": "ElevenLabs",
+      "platform": "web",
+      "category": "web_dashboard",
+      "mobbin_url": "https://mobbin.com/screens/e7f2ccad-19e6-422a-aecc-a2f2b5608d87",
+      "image_url": "https://mobbin.com/api/mcp/short/7Cy8OxT4",
+      "design_notes": "Sidebar nav grouped into Build/Configure/Monitor sections with icons. Main area: breadcrumb header, tab bar (API Requests/Usage/Webhooks), filter Row (Create view, Date range, Granularity, Group By, Filter), MetricGrid of 6 KPIs with selection underline, line chart with multi-series colored lines, legend, Linear scale toggle."
+    },
+    {
+      "id": "7f34404c-ba21-432f-a80e-68ba834ebbd8",
+      "app_name": "Base44",
+      "platform": "web",
+      "category": "web_dashboard",
+      "mobbin_url": "https://mobbin.com/screens/7f34404c-ba21-432f-a80e-68ba834ebbd8",
+      "image_url": "https://mobbin.com/api/mcp/short/MWJtP94h",
+      "design_notes": "Three-column layout: left activity log (with labelled edit Tags), middle nav menu, right main area. Main: breadcrumb tabs, traffic overview MetricGrid (3 cards with delta % in green), area chart, then 2x2 grid of smaller info cards (Page Traffic, Country, OS, Referrer)."
+    },
+    {
+      "id": "4d743fe2-e06e-4ea4-abd9-7f2b80d9b5b4",
+      "app_name": "Craft",
+      "platform": "web",
+      "category": "web_landing",
+      "mobbin_url": "https://mobbin.com/screens/4d743fe2-e06e-4ea4-abd9-7f2b80d9b5b4",
+      "image_url": "https://mobbin.com/api/mcp/short/psq1quux",
+      "design_notes": "Pill-floating nav at top with brand mark + links + dark CTA Button. Centered serif headline 'Your space for notes, tasks, and big ideas' over illustrated paper-collage hero. CTA 'Try Craft Free' Button below headline. Product screenshot floats over the illustration."
+    },
+    {
+      "id": "da502d66-7758-48ac-895f-137df039f4a5",
+      "app_name": "Relevance AI",
+      "platform": "web",
+      "category": "web_landing",
+      "mobbin_url": "https://mobbin.com/screens/da502d66-7758-48ac-895f-137df039f4a5",
+      "image_url": "https://mobbin.com/api/mcp/short/kOzUx0s5",
+      "design_notes": "Top nav with dropdowns + Sign in link + indigo 'Contact sales' Button. Huge bold left-aligned headline with one word color-highlighted in indigo. Subhead below. Two CTAs (filled + outline). Product preview Cards floating bottom-right with avatar message + status Tags."
+    },
+    {
+      "id": "02cd264c-d006-44ca-a2da-45df6aee1908",
+      "app_name": "Base44",
+      "platform": "web",
+      "category": "web_admin",
+      "mobbin_url": "https://mobbin.com/screens/02cd264c-d006-44ca-a2da-45df6aee1908",
+      "image_url": "https://mobbin.com/api/mcp/short/mzS8yHW0",
+      "design_notes": "Same three-column layout. Right main area: 'Users' page title with 'Invite User' dark Button. Tab bar (Users/Pending requests). Search Input + role filter Dropdown. Simple Table with Name / Role / Email columns. Toast 'User removed successfully' bottom-right."
+    },
+    {
+      "id": "b1276866-b330-4964-b81d-2ffa4de5c7a0",
+      "app_name": "Whop",
+      "platform": "web",
+      "category": "web_admin",
+      "mobbin_url": "https://mobbin.com/screens/b1276866-b330-4964-b81d-2ffa4de5c7a0",
+      "image_url": "https://mobbin.com/api/mcp/short/duc8lhj5",
+      "design_notes": "Sidebar with sectioned nav (Dashboard / Pinned / All tools / Apps). Main area: tab bar (Users/Memberships), filter pill 'Date joined', toolbar with Export + Edit Buttons. Dense Table with avatar+name, email, status Tag, country, spend, joined date, last accessed, contact icons. Footer pagination."
+    }
+  ]
+}

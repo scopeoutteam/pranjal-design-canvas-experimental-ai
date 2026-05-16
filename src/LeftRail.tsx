@@ -1,14 +1,55 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DRAG_MIME, COMPONENT_DRAG_MIME, type NodeKind } from './types'
+import {
+  DRAG_MIME,
+  COMPONENT_DRAG_MIME,
+  SHAPE_DRAG_MIME,
+  STICKY_DRAG_MIME,
+  STICKY_PALETTE,
+  type NodeKind,
+  type ShapeType,
+  type StickyColor,
+} from './types'
 import { CATALOG, type CatalogEntry } from './catalog/componentTemplates'
 import A2uiRenderer from './a2ui/Renderer'
 import type { A2uiMessage } from './a2ui/types'
 
-type RailMode = null | 'add' | 'catalog' | 'settings'
+type RailMode = null | 'add' | 'shapes' | 'sticky' | 'document' | 'catalog' | 'settings'
+
+interface CatalogState {
+  catalogId: string | null
+  disconnected: boolean
+}
+
+async function fetchCatalogState(): Promise<CatalogState> {
+  try {
+    const r = await fetch('/api/catalog/get')
+    const d = await r.json()
+    return { catalogId: d?.catalogId ?? null, disconnected: !!d?.disconnected }
+  } catch {
+    return { catalogId: null, disconnected: false }
+  }
+}
+
+type SettingsPrefill = { source: 'a2ui' | 'storybook' | 'docs'; url: string }
 
 export default function LeftRail() {
   const [mode, setMode] = useState<RailMode>(null)
+  const [catalogState, setCatalogState] = useState<CatalogState>({ catalogId: null, disconnected: false })
+  const [prefill, setPrefill] = useState<SettingsPrefill | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetchCatalogState().then(setCatalogState)
+  }, [])
+
+  const refreshCatalogState = () => {
+    fetchCatalogState().then(setCatalogState)
+  }
+
+  const openSettingsWithPrefill = (next: SettingsPrefill) => {
+    setPrefill(next)
+    setMode('settings')
+  }
 
   useEffect(() => {
     if (!mode) return
@@ -61,6 +102,24 @@ export default function LeftRail() {
           icon={<AddIcon />}
         />
         <RailButton
+          label="Shapes"
+          active={mode === 'shapes'}
+          onClick={() => setMode((m) => (m === 'shapes' ? null : 'shapes'))}
+          icon={<ShapesIcon />}
+        />
+        <RailButton
+          label="Sticky notes"
+          active={mode === 'sticky'}
+          onClick={() => setMode((m) => (m === 'sticky' ? null : 'sticky'))}
+          icon={<StickyIcon />}
+        />
+        <RailButton
+          label="Document"
+          active={mode === 'document'}
+          onClick={() => setMode((m) => (m === 'document' ? null : 'document'))}
+          icon={<DocumentIcon />}
+        />
+        <RailButton
           label="Design system"
           active={mode === 'catalog'}
           onClick={() => setMode((m) => (m === 'catalog' ? null : 'catalog'))}
@@ -76,8 +135,24 @@ export default function LeftRail() {
       </div>
 
       {mode === 'add' && <AddFlyout />}
-      {mode === 'catalog' && <CatalogFlyout />}
-      {mode === 'settings' && <SettingsFlyout />}
+      {mode === 'shapes' && <ShapesFlyout />}
+      {mode === 'sticky' && <StickyFlyout />}
+      {mode === 'document' && <DocumentFlyout />}
+      {mode === 'catalog' && (
+        <CatalogFlyout
+          disconnected={catalogState.disconnected}
+          onOpenSettings={() => setMode('settings')}
+          onQuickStart={openSettingsWithPrefill}
+        />
+      )}
+      {mode === 'settings' && (
+        <SettingsFlyout
+          catalogState={catalogState}
+          onCatalogChange={refreshCatalogState}
+          prefill={prefill}
+          onPrefillConsumed={() => setPrefill(null)}
+        />
+      )}
     </div>
   )
 }
@@ -93,33 +168,58 @@ function RailButton({
   active: boolean
   onClick: () => void
 }) {
+  const [hover, setHover] = useState(false)
+  // Tooltip suppressed when active so it doesn't compete with the open flyout.
+  const showTooltip = hover && !active
   return (
-    <button
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: 999,
-        border: 'none',
-        background: active ? '#171717' : 'transparent',
-        color: active ? '#ffffff' : '#525252',
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'background 120ms ease',
-      }}
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = '#f5f5f5'
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = 'transparent'
-      }}
-    >
-      {icon}
-    </button>
+    <div style={{ position: 'relative' }}>
+      <button
+        aria-label={label}
+        onClick={onClick}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onFocus={() => setHover(true)}
+        onBlur={() => setHover(false)}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: active ? 10 : 999,
+          border: 'none',
+          background: active ? '#171717' : hover ? '#f5f5f5' : 'transparent',
+          color: active ? '#ffffff' : '#525252',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'background 120ms ease, border-radius 160ms ease',
+        }}
+      >
+        {icon}
+      </button>
+      {showTooltip ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: 'calc(100% + 10px)',
+            transform: 'translateY(-50%)',
+            background: '#171717',
+            color: '#ffffff',
+            fontSize: 12,
+            fontWeight: 500,
+            lineHeight: 1,
+            padding: '6px 10px',
+            borderRadius: 6,
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            zIndex: 50,
+          }}
+        >
+          {label}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -142,6 +242,196 @@ function AddFlyout() {
       <FlyoutItem kind="web" label="Web" icon={<WebIcon />} />
       <FlyoutItem kind="mobile" label="Mobile" icon={<MobileIcon />} />
     </div>
+  )
+}
+
+function ShapesFlyout() {
+  const items: { shape: ShapeType; label: string }[] = [
+    { shape: 'rectangle', label: 'Rectangle' },
+    { shape: 'ellipse', label: 'Ellipse' },
+    { shape: 'triangle', label: 'Triangle' },
+    { shape: 'diamond', label: 'Diamond' },
+    { shape: 'arrow', label: 'Arrow' },
+    { shape: 'line', label: 'Line' },
+  ]
+  return (
+    <div
+      style={{
+        background: '#ffffff',
+        border: '1px solid #e5e5e5',
+        borderRadius: 16,
+        padding: 10,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+        width: 220,
+      }}
+    >
+      {items.map((it) => (
+        <ShapeDragItem key={it.shape} shape={it.shape} label={it.label} />
+      ))}
+    </div>
+  )
+}
+
+function ShapeDragItem({ shape, label }: { shape: ShapeType; label: string }) {
+  const [dragging, setDragging] = useState(false)
+  return (
+    <div
+      title={label}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(SHAPE_DRAG_MIME, shape)
+        e.dataTransfer.effectAllowed = 'copy'
+        setDragging(true)
+      }}
+      onDragEnd={() => setDragging(false)}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        padding: '12px 6px',
+        borderRadius: 10,
+        background: dragging ? '#e5e5e5' : '#f5f5f5',
+        cursor: 'grab',
+        userSelect: 'none',
+        opacity: dragging ? 0.6 : 1,
+        transition: 'background 120ms ease',
+      }}
+      onMouseEnter={(e) => {
+        if (!dragging) e.currentTarget.style.background = '#ededed'
+      }}
+      onMouseLeave={(e) => {
+        if (!dragging) e.currentTarget.style.background = '#f5f5f5'
+      }}
+    >
+      <ShapePreview shape={shape} />
+      <span style={{ fontSize: 11, color: '#525252', fontWeight: 500 }}>{label}</span>
+    </div>
+  )
+}
+
+function ShapePreview({ shape }: { shape: ShapeType }) {
+  const size = 32
+  const stroke = '#171717'
+  const fill = '#ffffff'
+  const sw = 1.6
+  const inset = sw / 2
+  const w = size - sw
+  const h = size - sw
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {shape === 'rectangle' && (
+        <rect x={inset} y={inset + 4} width={w} height={h - 8} rx={3} fill={fill} stroke={stroke} strokeWidth={sw} />
+      )}
+      {shape === 'ellipse' && (
+        <ellipse cx={size / 2} cy={size / 2} rx={(w) / 2} ry={(h - 6) / 2} fill={fill} stroke={stroke} strokeWidth={sw} />
+      )}
+      {shape === 'triangle' && (
+        <polygon
+          points={`${size / 2},${inset + 3} ${size - inset},${size - inset - 3} ${inset},${size - inset - 3}`}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={sw}
+          strokeLinejoin="round"
+        />
+      )}
+      {shape === 'diamond' && (
+        <polygon
+          points={`${size / 2},${inset + 2} ${size - inset - 2},${size / 2} ${size / 2},${size - inset - 2} ${inset + 2},${size / 2}`}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={sw}
+          strokeLinejoin="round"
+        />
+      )}
+      {shape === 'arrow' && (
+        <g fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
+          <line x1={inset + 2} y1={size / 2} x2={size - 8} y2={size / 2} />
+          <polyline points={`${size - 10},${size / 2 - 5} ${size - inset - 2},${size / 2} ${size - 10},${size / 2 + 5}`} />
+        </g>
+      )}
+      {shape === 'line' && (
+        <line x1={inset + 2} y1={size / 2} x2={size - inset - 2} y2={size / 2} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+      )}
+    </svg>
+  )
+}
+
+function StickyFlyout() {
+  const colors: StickyColor[] = ['yellow', 'pink', 'blue', 'green', 'purple', 'orange']
+  return (
+    <div
+      style={{
+        background: '#ffffff',
+        border: '1px solid #e5e5e5',
+        borderRadius: 16,
+        padding: 10,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(6, 1fr)',
+        gap: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+        width: 320,
+      }}
+    >
+      {colors.map((c) => (
+        <StickyDragItem key={c} color={c} />
+      ))}
+    </div>
+  )
+}
+
+function DocumentFlyout() {
+  return (
+    <div
+      style={{
+        background: '#ffffff',
+        border: '1px solid #e5e5e5',
+        borderRadius: 16,
+        padding: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+        minWidth: 200,
+      }}
+    >
+      <FlyoutItem kind="document" label="Document" icon={<DocumentIcon />} />
+    </div>
+  )
+}
+
+function StickyDragItem({ color }: { color: StickyColor }) {
+  const [dragging, setDragging] = useState(false)
+  const palette = STICKY_PALETTE[color]
+  return (
+    <div
+      title={color.charAt(0).toUpperCase() + color.slice(1)}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(STICKY_DRAG_MIME, color)
+        e.dataTransfer.effectAllowed = 'copy'
+        setDragging(true)
+      }}
+      onDragEnd={() => setDragging(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 50,
+        borderRadius: 8,
+        background: palette.bg,
+        border: `1px solid ${palette.border}`,
+        cursor: 'grab',
+        userSelect: 'none',
+        opacity: dragging ? 0.5 : 1,
+        transition: 'transform 120ms ease, opacity 120ms ease',
+        transform: dragging ? 'scale(0.95)' : 'scale(1)',
+      }}
+    />
   )
 }
 
@@ -200,7 +490,15 @@ function FlyoutItem({
   )
 }
 
-function CatalogFlyout() {
+function CatalogFlyout({
+  disconnected,
+  onOpenSettings,
+  onQuickStart,
+}: {
+  disconnected: boolean
+  onOpenSettings: () => void
+  onQuickStart: (next: { source: 'a2ui' | 'storybook' | 'docs'; url: string }) => void
+}) {
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -212,6 +510,104 @@ function CatalogFlyout() {
         c.category.toLowerCase().includes(q),
     )
   }, [query])
+
+  if (disconnected) {
+    return (
+      <div
+        style={{
+          background: '#ffffff',
+          border: '1px solid #e5e5e5',
+          borderRadius: 16,
+          padding: 18,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 14,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)',
+          width: 320,
+          alignItems: 'stretch',
+        }}
+      >
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)',
+            border: '1px dashed #d4d4d4',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#737373',
+          }}
+        >
+          <CatalogIcon />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#171717' }}>
+          No design system connected
+        </div>
+        <div style={{ fontSize: 12, color: '#737373', lineHeight: 1.5 }}>
+          Scout AI will generate components on the fly using A2UI primitives. Connect a design system to ground generation in your component library.
+        </div>
+
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#737373',
+            textTransform: 'uppercase',
+            letterSpacing: 0.6,
+            marginTop: 4,
+          }}
+        >
+          Quick start
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <QuickStartRow
+            label="Fluent v9"
+            sub="Default Microsoft Fluent components"
+            onClick={() => {
+              // Just reset to default catalog — no URL needed
+              fetch('/api/catalog/set', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reset: true }),
+              }).then(() => onOpenSettings())
+            }}
+          />
+          <QuickStartRow
+            label="Geist (Vercel)"
+            sub="58 components from vercel.com/geist"
+            onClick={() =>
+              onQuickStart({ source: 'docs', url: 'https://vercel.com/geist/introduction' })
+            }
+          />
+          <QuickStartRow
+            label="Storybook URL…"
+            sub="Import from any Storybook 6+ deployment"
+            onClick={() => onQuickStart({ source: 'storybook', url: '' })}
+          />
+        </div>
+
+        <button
+          onClick={onOpenSettings}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid #e5e5e5',
+            background: '#ffffff',
+            color: '#171717',
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            marginTop: 4,
+          }}
+        >
+          More options in Settings
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -250,7 +646,7 @@ function CatalogFlyout() {
             border: 'none',
             outline: 'none',
             background: 'transparent',
-            fontSize: 13,
+            fontSize: 14,
             fontFamily: 'inherit',
             color: '#171717',
             minWidth: 0,
@@ -277,6 +673,48 @@ function CatalogFlyout() {
         )}
       </div>
     </div>
+  )
+}
+
+function QuickStartRow({
+  label,
+  sub,
+  onClick,
+}: {
+  label: string
+  sub: string
+  onClick: () => void
+}) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 12,
+        padding: '10px 12px',
+        borderRadius: 10,
+        border: '1px solid #e5e5e5',
+        background: hover ? '#fafafa' : '#ffffff',
+        cursor: 'pointer',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+        transition: 'background 120ms ease, border-color 120ms ease',
+        borderColor: hover ? '#d4d4d4' : '#e5e5e5',
+      }}
+    >
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#171717' }}>{label}</div>
+        <div style={{ fontSize: 11, color: '#737373', marginTop: 2 }}>{sub}</div>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, color: '#a3a3a3' }}>
+        <path d="M5 3 L9 7 L5 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   )
 }
 
@@ -389,24 +827,44 @@ function CategoryDot({ category }: { category: CatalogEntry['category'] }) {
   )
 }
 
-type CatalogSource = 'a2ui' | 'storybook'
+type CatalogSource = 'a2ui' | 'storybook' | 'docs'
 
-function SettingsFlyout() {
-  const [currentId, setCurrentId] = useState<string | null>(null)
-  const [source, setSource] = useState<CatalogSource>('a2ui')
-  const [url, setUrl] = useState('')
+function SettingsFlyout({
+  catalogState,
+  onCatalogChange,
+  prefill,
+  onPrefillConsumed,
+}: {
+  catalogState: CatalogState
+  onCatalogChange: () => void
+  prefill?: { source: 'a2ui' | 'storybook' | 'docs'; url: string } | null
+  onPrefillConsumed?: () => void
+}) {
+  const [source, setSource] = useState<CatalogSource>(prefill?.source ?? 'a2ui')
+  const [url, setUrl] = useState(prefill?.url ?? '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
 
+  // Consume the prefill exactly once. If a new prefill arrives after mount
+  // (e.g. user clicks another quick-start chip while Settings is open) we
+  // honor it too.
   useEffect(() => {
-    fetch('/api/catalog/get')
-      .then((r) => r.json())
-      .then((d) => setCurrentId(d?.catalogId ?? null))
-      .catch(() => setCurrentId(null))
-  }, [])
+    if (prefill) {
+      setSource(prefill.source)
+      setUrl(prefill.url)
+      onPrefillConsumed?.()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill])
 
-  const apply = async (payload: { url?: string; reset?: boolean; storybookUrl?: string }) => {
+  const apply = async (payload: {
+    url?: string
+    reset?: boolean
+    storybookUrl?: string
+    docsUrl?: string
+    disconnect?: boolean
+  }) => {
     setLoading(true)
     setError(null)
     setStatus(null)
@@ -418,6 +876,12 @@ function SettingsFlyout() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: payload.storybookUrl }),
         })
+      } else if (payload.docsUrl) {
+        r = await fetch('/api/catalog/from-docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: payload.docsUrl }),
+        })
       } else {
         r = await fetch('/api/catalog/set', {
           method: 'POST',
@@ -427,8 +891,9 @@ function SettingsFlyout() {
       }
       const d = await r.json()
       if (!r.ok) throw new Error(d?.error || 'Failed')
-      setCurrentId(d.catalogId ?? null)
-      if (d.reset) setStatus('Reset to default catalog')
+      onCatalogChange()
+      if (payload.disconnect) setStatus('Disconnected — Scout AI will generate on the fly')
+      else if (d.reset) setStatus('Reset to default catalog')
       else if (d.componentCount) setStatus(`Imported ${d.componentCount} components`)
       else setStatus('Catalog loaded')
     } catch (err: unknown) {
@@ -469,18 +934,31 @@ function SettingsFlyout() {
         style={{
           padding: '8px 10px',
           borderRadius: 8,
-          background: '#f5f5f5',
-          border: '1px solid #e5e5e5',
+          background: catalogState.disconnected ? '#fffbeb' : '#f5f5f5',
+          border: `1px solid ${catalogState.disconnected ? '#fde68a' : '#e5e5e5'}`,
           fontSize: 12,
-          color: '#525252',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: catalogState.disconnected ? '#92400e' : '#525252',
+          fontFamily: catalogState.disconnected
+            ? 'inherit'
+            : 'ui-monospace, SFMono-Regular, Menlo, monospace',
           wordBreak: 'break-all',
         }}
       >
-        <div style={{ color: '#737373', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>
+        <div
+          style={{
+            color: catalogState.disconnected ? '#92400e' : '#737373',
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
+            marginBottom: 2,
+            fontFamily: 'inherit',
+          }}
+        >
           Active catalog
         </div>
-        {currentId ?? '—'}
+        {catalogState.disconnected
+          ? 'Disconnected — generating on the fly'
+          : catalogState.catalogId ?? '—'}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -503,6 +981,9 @@ function SettingsFlyout() {
           <SourceTab active={source === 'storybook'} onClick={() => setSource('storybook')}>
             Storybook
           </SourceTab>
+          <SourceTab active={source === 'docs'} onClick={() => setSource('docs')}>
+            Docs site
+          </SourceTab>
         </div>
 
         <input
@@ -512,13 +993,15 @@ function SettingsFlyout() {
           placeholder={
             source === 'storybook'
               ? 'https://storybooks.fluentui.dev'
+              : source === 'docs'
+              ? 'https://vercel.com/geist/introduction'
               : 'https://example.com/catalog.json'
           }
           style={{
             border: '1px solid #e5e5e5',
             borderRadius: 8,
             padding: '8px 10px',
-            fontSize: 13,
+            fontSize: 14,
             fontFamily: 'inherit',
             outline: 'none',
             color: '#171717',
@@ -527,6 +1010,8 @@ function SettingsFlyout() {
         <div style={{ fontSize: 11, color: '#737373', lineHeight: 1.45 }}>
           {source === 'storybook'
             ? 'Scrapes the Storybook root for component names via /index.json. Works with Storybook 6+ deployments.'
+            : source === 'docs'
+            ? 'Scrapes a docs site for component names by following links under the page’s parent path. Works with Geist, shadcn/ui, Radix, Chakra, Mantine and similar /[ds]/[component] structures.'
             : 'Loads an A2UI catalog JSON file. Must include a top-level catalogId.'}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -535,6 +1020,7 @@ function SettingsFlyout() {
               const u = url.trim()
               if (!u) return
               if (source === 'storybook') apply({ storybookUrl: u })
+              else if (source === 'docs') apply({ docsUrl: u })
               else apply({ url: u })
             }}
             disabled={loading || !url.trim()}
@@ -551,7 +1037,13 @@ function SettingsFlyout() {
               cursor: loading || !url.trim() ? 'default' : 'pointer',
             }}
           >
-            {loading ? 'Loading…' : source === 'storybook' ? 'Import from Storybook' : 'Load catalog'}
+            {loading
+              ? 'Loading…'
+              : source === 'storybook'
+              ? 'Import from Storybook'
+              : source === 'docs'
+              ? 'Import from docs'
+              : 'Load catalog'}
           </button>
           <button
             onClick={() => apply({ reset: true })}
@@ -571,6 +1063,23 @@ function SettingsFlyout() {
             Reset
           </button>
         </div>
+        <button
+          onClick={() => apply({ disconnect: true })}
+          disabled={loading || catalogState.disconnected}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid #e5e5e5',
+            background: '#ffffff',
+            color: catalogState.disconnected ? '#a3a3a3' : '#b91c1c',
+            fontSize: 13,
+            fontWeight: 500,
+            fontFamily: 'inherit',
+            cursor: loading || catalogState.disconnected ? 'default' : 'pointer',
+          }}
+        >
+          {catalogState.disconnected ? 'Already disconnected' : 'Disconnect design system'}
+        </button>
       </div>
 
       {status ? (
@@ -749,7 +1258,7 @@ function ApiKeySection() {
               border: 'none',
               outline: 'none',
               padding: '8px 10px',
-              fontSize: 13,
+              fontSize: 14,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               color: '#171717',
               minWidth: 0,
@@ -903,6 +1412,31 @@ function AddIcon() {
   )
 }
 
+function ShapesIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="7" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="13" cy="13" r="3.5" stroke="currentColor" strokeWidth="1.4" />
+      <polygon points="13,2 16.5,8 9.5,8" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
+function StickyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path
+        d="M3 3 H12 L15 6 V15 H3 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path d="M12 3 V6 H15" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
 function CatalogIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -945,6 +1479,23 @@ function MobileIcon() {
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <rect x="5" y="2" width="10" height="16" rx="2" stroke="currentColor" strokeWidth="1.4" />
       <circle cx="10" cy="15.5" r="0.6" fill="currentColor" />
+    </svg>
+  )
+}
+
+function DocumentIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path
+        d="M4 2 H12 L16 6 V18 H4 Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path d="M12 2 V6 H16" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
+      <line x1="7" y1="10" x2="13" y2="10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="7" y1="13" x2="13" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
   )
 }

@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { DRAG_MIME, COMPONENT_DRAG_MIME, NODE_DEFAULTS, type CanvasNodeData, type NodeKind } from './types'
+import {
+  DRAG_MIME,
+  COMPONENT_DRAG_MIME,
+  SHAPE_DRAG_MIME,
+  STICKY_DRAG_MIME,
+  NODE_DEFAULTS,
+  type CanvasNodeData,
+  type NodeKind,
+  type ShapeType,
+  type StickyColor,
+} from './types'
 import CanvasNode from './nodes/CanvasNode'
+import ShapeToolbar from './ShapeToolbar'
 import type { Conversation, SelectionMode } from './App'
 import { CATALOG } from './catalog/componentTemplates'
 
@@ -25,6 +36,10 @@ const NODE_HEIGHT: Record<NodeKind, number> = {
   mobile: 823,
   web: 550,
   component: 280,
+  shape: 160,
+  sticky: 200,
+  section: 320,
+  document: 720,
 }
 
 function isInsideScrollable(
@@ -128,7 +143,13 @@ export default function Canvas({
   onCopy,
   onCut,
   onRename,
+  onUpdateNodeText,
+  onUpdateNodeBlocks,
+  onUpdateNodeProps,
   onArrange,
+  onGroup,
+  onUngroup,
+  onWrapInSection,
   onAction,
   onSendMessage,
   canvasMode,
@@ -138,7 +159,12 @@ export default function Canvas({
   conversations: Map<string, Conversation>
   selectedIds: Set<string>
   selectedComponentId: string | null
-  onAddNode: (kind: NodeKind, worldX: number, worldY: number) => void
+  onAddNode: (
+    kind: NodeKind,
+    worldX: number,
+    worldY: number,
+    extras?: Partial<CanvasNodeData>,
+  ) => void
   onAddComponentNode: (worldX: number, worldY: number, title: string, surface: unknown[]) => void
   onMoveSelection: (dx: number, dy: number) => void
   onResizeNode: (id: string, next: { x: number; y: number; width: number; height: number }) => void
@@ -153,7 +179,13 @@ export default function Canvas({
   onCopy: (sourceId: string) => void
   onCut: (sourceId: string) => void
   onRename: (id: string, title: string) => void
+  onUpdateNodeText: (id: string, text: string) => void
+  onUpdateNodeBlocks: (id: string, blocks: import('./types').DocBlock[]) => void
+  onUpdateNodeProps: (id: string, patch: Partial<CanvasNodeData>) => void
   onArrange: (axis: 'horizontal' | 'vertical') => void
+  onGroup: () => void
+  onUngroup: () => void
+  onWrapInSection: () => void
   onAction: (name: string, context: Record<string, unknown> | undefined) => void
   onSendMessage: (text: string) => void
   canvasMode?: 'design' | 'prototype'
@@ -332,7 +364,12 @@ export default function Canvas({
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     const types = Array.from(e.dataTransfer.types)
-    if (types.includes(DRAG_MIME) || types.includes(COMPONENT_DRAG_MIME)) {
+    if (
+      types.includes(DRAG_MIME) ||
+      types.includes(COMPONENT_DRAG_MIME) ||
+      types.includes(SHAPE_DRAG_MIME) ||
+      types.includes(STICKY_DRAG_MIME)
+    ) {
       e.preventDefault()
       e.dataTransfer.dropEffect = 'copy'
     }
@@ -354,6 +391,36 @@ export default function Canvas({
         const worldX = (screenX - view.x) / view.scale - defaults.width / 2
         const worldY = (screenY - view.y) / view.scale - defaults.height / 2
         onAddNode(kind, worldX, worldY)
+        return
+      }
+
+      // Shape drop (rectangle / ellipse / triangle / diamond / arrow / line)
+      const shape = e.dataTransfer.getData(SHAPE_DRAG_MIME) as ShapeType
+      if (shape) {
+        e.preventDefault()
+        const defaults = NODE_DEFAULTS.shape
+        // Line / arrow look better wider than tall.
+        const width = defaults.width
+        const height = shape === 'line' || shape === 'arrow' ? 40 : defaults.height
+        const worldX = (screenX - view.x) / view.scale - width / 2
+        const worldY = (screenY - view.y) / view.scale - height / 2
+        onAddNode('shape', worldX, worldY, { shapeType: shape, width, height })
+        return
+      }
+
+      // Sticky drop (yellow / pink / blue / green)
+      const stickyColor = e.dataTransfer.getData(STICKY_DRAG_MIME) as StickyColor
+      if (stickyColor) {
+        e.preventDefault()
+        const defaults = NODE_DEFAULTS.sticky
+        const worldX = (screenX - view.x) / view.scale - defaults.width / 2
+        const worldY = (screenY - view.y) / view.scale - defaults.height / 2
+        onAddNode('sticky', worldX, worldY, {
+          stickyColor,
+          width: defaults.width,
+          height: defaults.height,
+          text: '',
+        })
         return
       }
 
@@ -443,7 +510,12 @@ export default function Canvas({
             onCopy={() => onCopy(n.id)}
             onCut={() => onCut(n.id)}
             onRename={(title) => onRename(n.id, title)}
+            onUpdateText={(text) => onUpdateNodeText(n.id, text)}
+            onUpdateBlocks={(blocks) => onUpdateNodeBlocks(n.id, blocks)}
             onArrange={onArrange}
+            onGroup={onGroup}
+            onUngroup={onUngroup}
+            onWrapInSection={onWrapInSection}
             getSnap={getSnap}
             onSetGuides={setGuides}
             selectedIds={selectedIds}
@@ -503,6 +575,25 @@ export default function Canvas({
         onZoomOut={() => zoomBy(1 / 1.2)}
         onReset={resetView}
       />
+
+      {/* Shape toolbar: exactly one shape selected → floating editor above it. */}
+      {(() => {
+        if (selectedIds.size !== 1) return null
+        const id = Array.from(selectedIds)[0]
+        const sel = nodes.find((n) => n.id === id)
+        if (!sel || sel.kind !== 'shape') return null
+        const w = sel.width ?? NODE_DEFAULTS.shape.width
+        const screenX = (sel.x + w / 2) * view.scale + view.x
+        const screenY = sel.y * view.scale + view.y
+        return (
+          <ShapeToolbar
+            node={sel}
+            screenX={screenX}
+            screenY={screenY}
+            onChange={(patch) => onUpdateNodeProps(id, patch)}
+          />
+        )
+      })()}
     </div>
   )
 }

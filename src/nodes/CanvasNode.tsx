@@ -4,6 +4,10 @@ import ChatBody from './ChatBody'
 import MobileBody from './MobileBody'
 import WebBody from './WebBody'
 import ComponentBody from './ComponentBody'
+import ShapeBody from './ShapeBody'
+import StickyBody from './StickyBody'
+import SectionBody from './SectionBody'
+import DocumentBody from './DocumentBody'
 import type { Conversation, SelectionMode } from '../App'
 import type { A2uiMessage } from '../a2ui/types'
 
@@ -52,9 +56,14 @@ export default function CanvasNode({
   onCut,
   onRename,
   onArrange,
+  onGroup,
+  onUngroup,
+  onWrapInSection,
   selectedComponentId,
   onSelectComponent,
   onEditText,
+  onUpdateText,
+  onUpdateBlocks,
   getSnap,
   onSetGuides,
   selectedIds,
@@ -77,9 +86,14 @@ export default function CanvasNode({
   onCut?: () => void
   onRename?: (title: string) => void
   onArrange?: (axis: 'horizontal' | 'vertical') => void
+  onGroup?: () => void
+  onUngroup?: () => void
+  onWrapInSection?: () => void
   selectedComponentId?: string | null
   onSelectComponent?: (id: string | null) => void
   onEditText?: (componentId: string, newText: string) => void
+  onUpdateText?: (next: string) => void
+  onUpdateBlocks?: (blocks: import('../types').DocBlock[]) => void
   getSnap?: (
     bounds: { x: number; y: number; w: number; h: number },
     excludeIds: Set<string>,
@@ -91,7 +105,19 @@ export default function CanvasNode({
   const width = node.width ?? defaultWidth
   const height = node.height ?? defaultHeight
   const title = node.title ?? defaultTitle
-  const canResize = node.kind === 'mobile' || node.kind === 'chat'
+  const canResize =
+    node.kind === 'mobile' ||
+    node.kind === 'chat' ||
+    node.kind === 'shape' ||
+    node.kind === 'sticky' ||
+    node.kind === 'section' ||
+    node.kind === 'document'
+  const headerless =
+    node.kind === 'component' ||
+    node.kind === 'shape' ||
+    node.kind === 'sticky' ||
+    node.kind === 'section' ||
+    node.kind === 'document'
   const [dragging, setDragging] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [resizing, setResizing] = useState<ResizeHandle | null>(null)
@@ -263,9 +289,9 @@ export default function CanvasNode({
       }}
     >
       {canResize && (showRing || resizing) ? (
-        <ResizeHandles onStart={startResize} headerOffset={node.kind === 'component' ? 0 : 12 + 22} />
+        <ResizeHandles onStart={startResize} headerOffset={headerless ? 0 : 12 + 22} />
       ) : null}
-      {node.kind !== 'component' && (
+      {!headerless && (
         <NodeHeader
           title={title}
           kind={node.kind}
@@ -295,12 +321,18 @@ export default function CanvasNode({
       )}
       <div
         style={{
-          marginTop: node.kind === 'component' ? 0 : 12,
+          marginTop: headerless ? 0 : 12,
           position: 'relative',
-          borderRadius: node.kind === 'chat' ? 30 : 0,
+          borderRadius: node.kind === 'chat' ? 30 : node.kind === 'sticky' ? 4 : 0,
           boxShadow: showRing ? `0 0 0 ${ringWidth}px ${ringColor}` : 'none',
           transition: 'box-shadow 100ms ease',
-          overflow: 'hidden',
+          overflow:
+            node.kind === 'shape' ||
+            node.kind === 'sticky' ||
+            node.kind === 'document' ||
+            node.kind === 'section'
+              ? 'visible'
+              : 'hidden',
         }}
       >
         {node.kind === 'chat' && (
@@ -361,6 +393,47 @@ export default function CanvasNode({
             onAction={onAction}
           />
         )}
+        {node.kind === 'shape' && (
+          <ShapeBody
+            shape={node.shapeType ?? 'rectangle'}
+            width={width}
+            height={height}
+            text={node.text}
+            arrowStart={node.arrowStart}
+            arrowEnd={node.arrowEnd}
+            fillColor={node.fillColor}
+            strokeColor={node.strokeColor}
+            strokeWidth={node.strokeWidth}
+            strokeStyle={node.strokeStyle}
+            fillOpacity={node.fillOpacity}
+            cornerRadius={node.cornerRadius}
+          />
+        )}
+        {node.kind === 'sticky' && (
+          <StickyBody
+            color={node.stickyColor ?? 'yellow'}
+            text={node.text ?? ''}
+            width={width}
+            height={height}
+            onTextChange={(next) => onUpdateText?.(next)}
+          />
+        )}
+        {node.kind === 'section' && (
+          <SectionBody
+            title={node.title ?? 'Section'}
+            width={width}
+            height={height}
+            onTitleChange={(next) => onRename?.(next)}
+          />
+        )}
+        {node.kind === 'document' && (
+          <DocumentBody
+            blocks={node.documentBlocks ?? []}
+            width={width}
+            height={height}
+            onChange={(blocks) => onUpdateBlocks?.(blocks)}
+          />
+        )}
         {isActive && conversation?.loading ? <ShimmerOverlay /> : null}
       </div>
 
@@ -400,6 +473,36 @@ export default function CanvasNode({
                 icon={<TidyVerticalIcon />}
                 label="Auto-layout · Vertical"
               />
+            </>
+          ) : null}
+          {((selectedIds && selectedIds.size >= 2 && onGroup) ||
+            (node.groupId && onUngroup) ||
+            (selectedIds && selectedIds.size >= 1 && onWrapInSection)) ? (
+            <>
+              <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+              {selectedIds && selectedIds.size >= 2 && onGroup ? (
+                <MenuItem
+                  onClick={runMenuItem(onGroup)}
+                  icon={<GroupIcon />}
+                  label="Group"
+                  shortcut="⌘G"
+                />
+              ) : null}
+              {node.groupId && onUngroup ? (
+                <MenuItem
+                  onClick={runMenuItem(onUngroup)}
+                  icon={<UngroupIcon />}
+                  label="Ungroup"
+                  shortcut="⌘⇧G"
+                />
+              ) : null}
+              {selectedIds && selectedIds.size >= 1 && onWrapInSection ? (
+                <MenuItem
+                  onClick={runMenuItem(onWrapInSection)}
+                  icon={<SectionIcon />}
+                  label="Wrap in section"
+                />
+              ) : null}
             </>
           ) : null}
           {node.kind !== 'component' && onRename ? (
@@ -445,6 +548,34 @@ function TidyVerticalIcon() {
       <rect x="3" y="1" width="8" height="3" rx="0.6" stroke="currentColor" strokeWidth="1.2" fill="none" />
       <rect x="3" y="5.5" width="8" height="3" rx="0.6" stroke="currentColor" strokeWidth="1.2" fill="none" />
       <rect x="3" y="10" width="8" height="3" rx="0.6" stroke="currentColor" strokeWidth="1.2" fill="none" />
+    </svg>
+  )
+}
+
+function GroupIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <rect x="7" y="7" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <rect x="0.5" y="0.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="0.8" strokeDasharray="1.5 1.5" fill="none" />
+    </svg>
+  )
+}
+
+function UngroupIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.2" fill="none" />
+    </svg>
+  )
+}
+
+function SectionIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <rect x="1" y="1" width="12" height="12" rx="1.6" stroke="currentColor" strokeWidth="1.2" fill="none" />
+      <line x1="1" y1="4.5" x2="13" y2="4.5" stroke="currentColor" strokeWidth="1.2" />
     </svg>
   )
 }
